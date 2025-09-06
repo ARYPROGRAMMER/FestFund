@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import axios from 'axios';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { useWallet } from '@/contexts/WalletContext';
 import { smartContractService } from '@/lib/smartContracts';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
 interface Milestone {
   id: string;
@@ -100,26 +103,24 @@ const CampaignDetailsPage: React.FC = () => {
 
       try {
         setLoading(true);
-        const response = await fetch(`/api/events/${eventId}`);
+        const response = await axios.get(`${BACKEND_URL}/api/proof/events/${eventId}`);
         
-        if (!response.ok) {
-          throw new Error('Failed to fetch campaign');
+        if (response.data.success) {
+          setCampaign(response.data.event);
+        } else {
+          throw new Error(response.data.message || 'Failed to fetch campaign');
         }
 
-        const data = await response.json();
-        setCampaign(data);
-
         // Fetch commitments
-        const commitmentsResponse = await fetch(`/api/events/${eventId}/commitments`);
-        if (commitmentsResponse.ok) {
-          const commitmentsData = await commitmentsResponse.json();
-          setCommitments(commitmentsData);
+        const commitmentsResponse = await axios.get(`${BACKEND_URL}/api/proof/events/${eventId}/commitments`);
+        if (commitmentsResponse.data.success) {
+          setCommitments(commitmentsResponse.data.commitments);
         }
 
         // Try to sync with smart contract data if available
-        if (smartContractsReady && data.contractEventId) {
+        if (smartContractsReady && response.data.event.contractEventId) {
           try {
-            const contractData = await smartContractService.getEventFromChain(data.contractEventId);
+            const contractData = await smartContractService.getEventFromChain(response.data.event.contractEventId);
             console.log('📊 Contract data:', contractData);
             
             // Optional: Update local data with contract data
@@ -156,26 +157,21 @@ const CampaignDetailsPage: React.FC = () => {
       setError(null);
 
       // Step 1: Generate ZK commitment
-      const commitmentResponse = await fetch('/api/proof/commitment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          eventId: campaign._id,
-          donorAddress: account,
-          amount: donationData.amount,
-          zkMode: donationData.zkMode,
-          isAnonymous: donationData.isAnonymous,
-          message: donationData.message
-        }),
+      const commitmentResponse = await axios.post(`${BACKEND_URL}/api/proof/submit-commitment`, {
+        eventId: campaign?._id,
+        donorAddress: account,
+        commitmentHash: `hash_${Date.now()}`, // Placeholder - should be generated properly
+        amount: donationData.amount,
+        zkMode: donationData.zkMode,
+        isAnonymous: donationData.isAnonymous,
+        message: donationData.message
       });
 
-      if (!commitmentResponse.ok) {
-        throw new Error('Failed to generate commitment');
+      if (!commitmentResponse.data.success) {
+        throw new Error(commitmentResponse.data.message || 'Failed to generate commitment');
       }
 
-      const commitmentResult = await commitmentResponse.json();
+      const commitmentResult = commitmentResponse.data;
       console.log('✅ Commitment generated:', commitmentResult);
 
       // Step 2: Store commitment on-chain if smart contracts are available

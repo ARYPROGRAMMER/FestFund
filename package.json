@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "setup": "node scripts/setup.js",
+    "verify": "node verify.js",
     "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ..",
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
     "dev:full": "concurrently \"npm run hardhat\" \"npm run backend\" \"npm run frontend\"",

@@ -92,6 +92,19 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true);
   const [showContributeForm, setShowContributeForm] = useState(false);
 
+  // Helper function to safely format numbers
+  const safeToFixed = (value: any, decimals: number = 2): string => {
+    if (value === null || value === undefined || isNaN(Number(value))) {
+      return "0.00".substring(0, decimals + 2);
+    }
+    return Number(value).toFixed(decimals);
+  };
+
+  // Helper function to safely format ETH amounts
+  const formatETH = (amount: any): string => {
+    return `${safeToFixed(amount, 4)} ETH`;
+  };
+
   useEffect(() => {
     if (eventId && typeof eventId === "string") {
       loadEventDetails(eventId);
@@ -104,7 +117,34 @@ export default function EventPage() {
       const response = await axios.get(`${BACKEND_URL}/api/proof/events/${id}`);
 
       if (response.data.success) {
-        setEvent(response.data.event);
+        const eventData = response.data.event;
+
+        // Ensure numeric fields have default values
+        const processedEvent = {
+          ...eventData,
+          currentAmount: Number(eventData.currentAmount) || 0,
+          targetAmount: Number(eventData.targetAmount) || 0,
+          progressPercentage: Number(eventData.progressPercentage) || 0,
+          totalAmount: Number(eventData.totalAmount) || 0,
+          uniqueDonors: Number(eventData.uniqueDonors) || 0,
+          totalCommitments: Number(eventData.totalCommitments) || 0,
+          milestones: Array.isArray(eventData.milestones)
+            ? eventData.milestones.map((m: any) => Number(m) || 0)
+            : [],
+          ranking: eventData.ranking
+            ? {
+                ...eventData.ranking,
+                score: Number(eventData.ranking.score) || 0,
+                views: Number(eventData.ranking.views) || 0,
+                likes: Number(eventData.ranking.likes) || 0,
+                totalDonations: Number(eventData.ranking.totalDonations) || 0,
+                uniqueDonors: Number(eventData.ranking.uniqueDonors) || 0,
+                avgDonation: Number(eventData.ranking.avgDonation) || 0,
+              }
+            : undefined,
+        };
+
+        setEvent(processedEvent);
       } else {
         toast.error("Event not found");
         router.push("/");
@@ -151,6 +191,9 @@ export default function EventPage() {
   };
 
   const formatAddress = (address: string) => {
+    if (!address || typeof address !== "string") {
+      return "0x...";
+    }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
@@ -296,7 +339,7 @@ export default function EventPage() {
                         <div className="flex items-center gap-1 text-yellow-600 mb-2">
                           <Award className="w-4 h-4" />
                           <span className="font-semibold">
-                            {event.ranking.score.toFixed(1)}
+                            {safeToFixed(event.ranking.score, 1)}
                           </span>
                         </div>
                         <p className="text-sm text-gray-500">Ranking Score</p>
@@ -375,14 +418,19 @@ export default function EventPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {event.milestones.map((milestone, index) => {
-                      const isAchieved = event.currentAmount >= milestone;
-                      const progress = (event.currentAmount / milestone) * 100;
+                    {(event.milestones || []).map((milestone, index) => {
+                      const currentAmount = Number(event.currentAmount) || 0;
+                      const milestoneAmount = Number(milestone) || 0;
+                      const isAchieved = currentAmount >= milestoneAmount;
+                      const progress =
+                        milestoneAmount > 0
+                          ? (currentAmount / milestoneAmount) * 100
+                          : 0;
                       const isNext =
                         !isAchieved &&
                         index ===
-                          event.milestones.findIndex(
-                            (m) => event.currentAmount < m
+                          (event.milestones || []).findIndex(
+                            (m) => currentAmount < Number(m)
                           );
 
                       return (
@@ -399,7 +447,9 @@ export default function EventPage() {
                               <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
                             )}
                             <div>
-                              <p className="font-semibold">{milestone} ETH</p>
+                              <p className="font-semibold">
+                                {safeToFixed(milestoneAmount)} ETH
+                              </p>
                               <p className="text-sm text-gray-500">
                                 Milestone {index + 1}
                                 {isNext && " (Next)"}
@@ -410,10 +460,10 @@ export default function EventPage() {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold">
-                              {Math.min(progress, 100).toFixed(1)}%
+                              {safeToFixed(Math.min(progress || 0, 100), 1)}%
                             </p>
                             <Progress
-                              value={Math.min(progress, 100)}
+                              value={Math.min(progress || 0, 100)}
                               className="w-20 h-2"
                             />
                           </div>
@@ -436,18 +486,18 @@ export default function EventPage() {
                   <div>
                     <div className="flex justify-between mb-2">
                       <span className="text-2xl font-bold">
-                        {event.currentAmount.toFixed(4)} ETH
+                        {formatETH(event.currentAmount)}
                       </span>
                       <span className="text-gray-500">
-                        of {event.targetAmount} ETH
+                        of {safeToFixed(event.targetAmount)} ETH
                       </span>
                     </div>
                     <Progress
-                      value={event.progressPercentage}
+                      value={Number(event.progressPercentage) || 0}
                       className="h-3"
                     />
                     <p className="text-sm text-gray-500 mt-1">
-                      {event.progressPercentage.toFixed(1)}% funded
+                      {safeToFixed(event.progressPercentage, 1)}% funded
                     </p>
                   </div>
 
@@ -543,10 +593,7 @@ export default function EventPage() {
                               {commitment.isRevealed &&
                               commitment.revealedAmount ? (
                                 <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                  {parseFloat(
-                                    commitment.revealedAmount
-                                  ).toFixed(4)}{" "}
-                                  ETH
+                                  {formatETH(commitment.revealedAmount)}
                                 </Badge>
                               ) : (
                                 <Badge variant="secondary">Private</Badge>
@@ -559,9 +606,9 @@ export default function EventPage() {
                 )}
 
               {/* Campaign Achievements */}
-              <CampaignAchievements 
-                eventId={event.eventId} 
-                className="bg-white dark:bg-slate-800 shadow-xl rounded-lg p-6"
+              <CampaignAchievements
+                eventId={event.eventId}
+                className="bg-white dark:bg-slate-800 shadow-xl rounded-lg p-6 border border-gray-200 dark:border-gray-700"
                 showStats={true}
               />
             </div>

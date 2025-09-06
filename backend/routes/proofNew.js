@@ -4,6 +4,53 @@ const Event = require("../models/Event");
 const Commitment = require("../models/CommitmentNew");
 const { midnightIntegration } = require("../utils/midnightIntegration");
 
+// Helper function to update event totals after donations
+async function updateEventTotals(eventId) {
+  try {
+    const event = await Event.findOne({ eventId });
+    if (!event) {
+      console.error(`Event ${eventId} not found for total update`);
+      return false;
+    }
+
+    // Calculate totals from all revealed commitments
+    const commitments = await Commitment.find({ eventId });
+    const revealedCommitments = commitments.filter(
+      (c) => c.isRevealed && c.revealedAmount
+    );
+
+    const totalAmount = revealedCommitments.reduce((sum, c) => {
+      return sum + parseFloat(c.revealedAmount || "0");
+    }, 0);
+
+    const uniqueDonors = new Set(revealedCommitments.map((c) => c.donorAddress))
+      .size;
+
+    // Update event
+    event.totalAmount = totalAmount;
+    event.currentAmount = totalAmount; // For frontend compatibility
+    event.uniqueDonors = uniqueDonors;
+
+    // Update milestone progress
+    const currentMilestone = event.milestones.findIndex((m) => totalAmount < m);
+    event.currentMilestone =
+      currentMilestone === -1 ? event.milestones.length : currentMilestone;
+
+    // Update ranking
+    await event.updateRanking();
+
+    await event.save();
+
+    console.log(
+      `📊 Updated event ${eventId} totals: ${totalAmount} ETH from ${uniqueDonors} donors`
+    );
+    return true;
+  } catch (error) {
+    console.error(`Failed to update event ${eventId} totals:`, error);
+    return false;
+  }
+}
+
 // Initialize Real Midnight integration on startup
 midnightIntegration.initialize().then((success) => {
   if (success) {
@@ -92,6 +139,7 @@ router.get("/events", async (req, res) => {
 
         return {
           ...event.toObject(),
+          organizerAddress: event.organizer, // Add organizerAddress alias for frontend compatibility
           totalCommitments: commitments.length,
           uniqueDonors: uniqueDonorCount,
           progressPercentage: Math.round(progressPercentage * 100) / 100,
@@ -172,6 +220,7 @@ router.get("/events/:eventId", async (req, res) => {
     // Enhanced event data
     const enhancedEvent = {
       ...event.toObject(),
+      organizerAddress: event.organizer, // Add organizerAddress alias for frontend compatibility
       totalCommitments: commitments.length,
       uniqueDonors: uniqueDonorCount,
       totalRevealedAmount: totalRevealedAmount,
@@ -216,6 +265,7 @@ router.get("/events/:eventId", async (req, res) => {
 router.get("/events/organizer/:address", async (req, res) => {
   try {
     const { address } = req.params;
+    // Query by organizer field (which contains wallet address)
     const events = await Event.find({
       organizer: { $regex: new RegExp(`^${address}$`, "i") },
     }).sort({ createdAt: -1 });
@@ -228,11 +278,35 @@ router.get("/events/organizer/:address", async (req, res) => {
           .filter((c) => c.isRevealed && c.revealedAmount)
           .reduce((sum, c) => sum + parseFloat(c.revealedAmount || "0"), 0);
 
+        const uniqueDonorCount = new Set(commitments.map((c) => c.donorAddress))
+          .size;
+
+        // Calculate progress percentage
+        const progressPercentage =
+          event.targetAmount > 0
+            ? Math.min((event.totalAmount / event.targetAmount) * 100, 100)
+            : 0;
+
         return {
           ...event.toObject(),
+          organizerAddress: event.organizer, // Add organizerAddress alias for frontend compatibility
           totalCommitments: commitments.length,
-          uniqueDonors: new Set(commitments.map((c) => c.donorAddress)).size,
+          uniqueDonors: uniqueDonorCount,
           totalRevealedAmount: totalAmount,
+          progressPercentage: Math.round(progressPercentage * 100) / 100,
+          isUrgent:
+            event.deadline &&
+            new Date(event.deadline) <
+              new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          daysLeft: event.deadline
+            ? Math.max(
+                0,
+                Math.ceil(
+                  (new Date(event.deadline).getTime() - Date.now()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              )
+            : null,
           recentCommitments: commitments
             .sort(
               (a, b) =>
@@ -319,7 +393,9 @@ router.post("/events", async (req, res) => {
     const organizerName = organizer && organizerAddress ? organizer : null;
 
     // Generate eventId if not provided
-    const generatedEventId = eventId || `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const generatedEventId =
+      eventId ||
+      `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Validate required fields
     if (
@@ -574,14 +650,6 @@ router.post("/generate-commitment", async (req, res) => {
       });
     }
 
-    // Prevent organizer from donating to their own event
-    if (event.organizer.toLowerCase() === donorAddress.toLowerCase()) {
-      return res.status(400).json({
-        success: false,
-        message: "Event organizers cannot donate to their own events",
-      });
-    }
-
     // Generate random secrets for ZK proof (in production, let user provide or derive securely)
     const donorSecret = Math.floor(Math.random() * 1000000000);
     const nullifier = Math.floor(Math.random() * 1000000000);
@@ -606,15 +674,33 @@ router.post("/generate-commitment", async (req, res) => {
 
     // Store commitment in database
     const commitment = new Commitment({
+      // Required ZK fields
+      commitmentHash: commitmentData.commitment,
+      nullifierHash: commitmentData.nullifierHash,
+      zkMode: "midnight-network",
+      network: "midnight",
+
+      // Event context
       eventId,
+
+      // Proof data
+      proof: commitmentData.proof,
+      publicSignals: commitmentData.publicSignals || [],
+
+      // Transaction tracking
+      txHash: commitmentData.txHash,
+
+      // Legacy fields for compatibility
       donorAddress: donorAddress.toLowerCase(),
       amount,
       commitment: commitmentData.commitment,
-      nullifierHash: commitmentData.nullifierHash,
-      proof: commitmentData.proof,
-      txHash: commitmentData.txHash,
       verified: true, // Already verified during generation
       timestamp: new Date().toISOString(),
+
+      // Reveal fields for immediate funding
+      isRevealed: true,
+      revealedAmount: amount,
+
       metadata: {
         isMock: false,
         network: "midnight",
@@ -624,6 +710,26 @@ router.post("/generate-commitment", async (req, res) => {
     });
 
     await commitment.save();
+
+    // Update event totals immediately after successful commitment
+    const updateResult = await updateEventTotals(eventId);
+
+    // Get updated totals for response
+    const updatedEvent = await Event.findOne({ eventId });
+    const eventTotals = updatedEvent
+      ? {
+          totalAmount: updatedEvent.totalAmount,
+          currentAmount: updatedEvent.currentAmount,
+          uniqueDonors: updatedEvent.uniqueDonors,
+          progressPercentage:
+            updatedEvent.targetAmount > 0
+              ? Math.min(
+                  (updatedEvent.totalAmount / updatedEvent.targetAmount) * 100,
+                  100
+                )
+              : 0,
+        }
+      : null;
 
     console.log(
       `✅ Real ZK commitment generated and stored: ${commitment._id}`
@@ -635,6 +741,7 @@ router.post("/generate-commitment", async (req, res) => {
       commitment: commitmentData.commitment,
       txHash: commitmentData.txHash,
       message: "Real ZK proof generated successfully",
+      eventTotals: eventTotals,
     });
   } catch (error) {
     console.error("❌ Error generating real ZK commitment:", error);
@@ -713,17 +820,24 @@ router.post("/submit-commitment", async (req, res) => {
       });
     }
 
-    // Prevent organizer from donating to their own event
-    if (event.organizer.toLowerCase() === donorAddress.toLowerCase()) {
-      return res.status(400).json({
-        success: false,
-        message: "Event organizers cannot donate to their own events",
-      });
-    }
-
     const newCommitment = new Commitment({
+      // Required ZK fields
       commitmentHash,
+      nullifierHash: commitmentHash + "_nullifier", // Generate proper nullifier in production
+      zkMode: "own-keys", // This is for the old commit method
+      network: "self-hosted",
+
+      // Event context
       eventId,
+
+      // Proof data (simplified for legacy commit)
+      proof: { commitmentHash }, // Simplified proof
+      publicSignals: [],
+
+      // Transaction tracking (mock for commit)
+      txHash: "0x" + commitmentHash.slice(0, 64), // Mock transaction hash
+
+      // Legacy fields
       donorAddress: donorAddress.toLowerCase(),
       timestamp: new Date().toISOString(),
       isRevealed: false,
@@ -1084,7 +1198,7 @@ router.post("/test-achievements", async (req, res) => {
   try {
     console.log("Testing achievement generation...");
     const achievementService = require("../services/achievementService");
-    
+
     // Create a mock event for testing
     const mockEvent = {
       eventId: "test-event-" + Date.now(),
@@ -1092,24 +1206,31 @@ router.post("/test-achievements", async (req, res) => {
       description: "A test campaign",
       targetAmount: 100,
       milestones: [25, 50, 75, 100],
-      milestoneNames: ["Quarter way", "Halfway", "Three quarters", "Goal reached"],
-      metadata: { category: "test" }
+      milestoneNames: [
+        "Quarter way",
+        "Halfway",
+        "Three quarters",
+        "Goal reached",
+      ],
+      metadata: { category: "test" },
     };
-    
-    const achievements = await achievementService.generateCampaignAchievements(mockEvent);
-    
+
+    const achievements = await achievementService.generateCampaignAchievements(
+      mockEvent
+    );
+
     res.json({
       success: true,
       message: "Test completed",
       achievements: achievements,
-      count: achievements.length
+      count: achievements.length,
     });
   } catch (error) {
     console.error("Test error:", error);
     res.status(500).json({
       success: false,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
   }
 });

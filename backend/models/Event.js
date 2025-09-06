@@ -22,12 +22,15 @@ const EventSchema = new mongoose.Schema(
       type: String,
       required: true,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           // Allow either Ethereum address format (0x + 40 hex chars) or username
-          return /^0x[a-fA-F0-9]{40}$/.test(v) || /^[a-zA-Z0-9_-]{3,30}$/.test(v);
+          return (
+            /^0x[a-fA-F0-9]{40}$/.test(v) || /^[a-zA-Z0-9_-]{3,30}$/.test(v)
+          );
         },
-        message: 'Organizer must be a valid Ethereum address (0x + 40 hex chars) or username (3-30 alphanumeric characters)'
-      }
+        message:
+          "Organizer must be a valid Ethereum address (0x + 40 hex chars) or username (3-30 alphanumeric characters)",
+      },
     },
     organizerName: {
       type: String,
@@ -60,6 +63,10 @@ const EventSchema = new mongoose.Schema(
       default: 0,
     },
     totalAmount: {
+      type: Number,
+      default: 0,
+    },
+    currentAmount: {
       type: Number,
       default: 0,
     },
@@ -137,8 +144,8 @@ EventSchema.virtual("organizerAddress").get(function () {
 });
 
 // Ensure virtual fields are serialized
-EventSchema.set('toJSON', { virtuals: true });
-EventSchema.set('toObject', { virtuals: true });
+EventSchema.set("toJSON", { virtuals: true });
+EventSchema.set("toObject", { virtuals: true });
 
 // Calculate ranking score based on donations, donors, and engagement
 EventSchema.methods.updateRanking = function () {

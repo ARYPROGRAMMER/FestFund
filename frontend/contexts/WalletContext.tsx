@@ -65,23 +65,30 @@ class MockSigner {
     // Generate a fake but consistent signature for testing
     // This is deterministic based on message content for consistent testing
     const hashValue = Math.abs(this.hashCode(message + this.address));
-    const twoHexChars = (hashValue % 256).toString(16).padStart(2, '0');
-    const fakeSignature = `0x${'0'.repeat(130)}${twoHexChars}`;
-    console.log("MockSigner: Generated signature:", fakeSignature, "Length:", fakeSignature.length);
+    const twoHexChars = (hashValue % 256).toString(16).padStart(2, "0");
+    const fakeSignature = `0x${"0".repeat(130)}${twoHexChars}`;
+    console.log(
+      "MockSigner: Generated signature:",
+      fakeSignature,
+      "Length:",
+      fakeSignature.length
+    );
     return fakeSignature;
   }
 
   // Mock transaction implementation for testing payments
   async sendTransaction(transactionRequest: any): Promise<any> {
     console.log("MockSigner: Sending transaction:", transactionRequest);
-    
+
     // Simulate transaction processing delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     // Generate a fake but realistic transaction hash
-    const txData = `${this.address}${transactionRequest.to}${transactionRequest.value}${Date.now()}`;
-    const txHash = `0x${this.hashCode(txData).toString(16).padStart(64, '0')}`;
-    
+    const txData = `${this.address}${transactionRequest.to}${
+      transactionRequest.value
+    }${Date.now()}`;
+    const txHash = `0x${this.hashCode(txData).toString(16).padStart(64, "0")}`;
+
     const mockTransaction = {
       hash: txHash,
       to: transactionRequest.to,
@@ -91,17 +98,22 @@ class MockSigner {
       gasPrice: "20000000000", // 20 Gwei
       nonce: Math.floor(Math.random() * 1000),
       chainId: 1,
-      
+
       // Mock wait function for transaction confirmation
       wait: async (confirmations = 1) => {
-        console.log(`MockSigner: Waiting for ${confirmations} confirmations...`);
+        console.log(
+          `MockSigner: Waiting for ${confirmations} confirmations...`
+        );
         // Simulate confirmation delay
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
         const receipt = {
           transactionHash: txHash,
           blockNumber: Math.floor(Math.random() * 1000000) + 18500000,
-          blockHash: `0x${Math.random().toString(16).substring(2).padStart(64, '0')}`,
+          blockHash: `0x${Math.random()
+            .toString(16)
+            .substring(2)
+            .padStart(64, "0")}`,
           gasUsed: transactionRequest.gasLimit || 21000,
           status: 1, // Success
           confirmations: confirmations,
@@ -109,12 +121,12 @@ class MockSigner {
           to: transactionRequest.to,
           logs: [],
         };
-        
+
         console.log("MockSigner: Transaction confirmed:", receipt);
         return receipt;
-      }
+      },
     };
-    
+
     console.log("MockSigner: Transaction created:", mockTransaction.hash);
     return mockTransaction;
   }
@@ -123,7 +135,7 @@ class MockSigner {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32bit integer
     }
     return Math.abs(hash);
@@ -252,19 +264,19 @@ export function WalletProvider({ children }: WalletProviderProps) {
 
   const connectWallet = async (skipBackendCall = false): Promise<boolean> => {
     console.log("connectWallet called, USE_MOCK_WALLET:", USE_MOCK_WALLET);
-    
+
     try {
       setIsConnecting(true);
 
       if (USE_MOCK_WALLET) {
         console.log("Using mock wallet mode...");
-        
+
         // Simulate a slight delay for realistic UX
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
         const address = MOCK_WALLET.address;
         const chainId = MOCK_WALLET.chainId;
-        
+
         let newSessionToken = null;
 
         // Only create backend session if not skipping
@@ -285,13 +297,25 @@ export function WalletProvider({ children }: WalletProviderProps) {
             );
 
             newSessionToken = sessionResponse.data.sessionToken;
-            console.log("Backend session created for mock wallet");
+            console.log("Backend session created for mock wallet successfully");
           } catch (error: any) {
-            console.warn("Backend session creation failed for mock wallet:", error);
+            console.warn(
+              "Backend session creation failed for mock wallet:",
+              error
+            );
             if (error.response?.data?.needsRegistration) {
-              console.log("Mock user needs to register first");
+              console.log("Mock user needs to register first - this is normal");
+            } else if (
+              error.response?.status === 500 ||
+              error.code === "ECONNREFUSED"
+            ) {
+              console.log(
+                "Backend server might be down - continuing with mock wallet"
+              );
             } else {
-              toast.error("Failed to create session, but mock wallet connected");
+              toast.error(
+                "Session creation failed - please try logging in again"
+              );
             }
           }
         }
@@ -312,10 +336,12 @@ export function WalletProvider({ children }: WalletProviderProps) {
         toast.success("Mock wallet connected successfully!");
         console.log("Mock wallet connection completed successfully");
         return true;
-        
       } else {
-        console.log("Using real wallet mode, window.ethereum:", !!window.ethereum);
-        
+        console.log(
+          "Using real wallet mode, window.ethereum:",
+          !!window.ethereum
+        );
+
         if (!window.ethereum) {
           toast.error("Please install MetaMask to continue");
           return false;
@@ -324,7 +350,9 @@ export function WalletProvider({ children }: WalletProviderProps) {
         console.log("Starting real wallet connection...");
 
         // Request account access - this should open MetaMask
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = await window.ethereum.request({
+          method: "eth_requestAccounts",
+        });
         console.log("Account access granted, accounts:", accounts);
 
         if (!accounts || accounts.length === 0) {
@@ -336,7 +364,12 @@ export function WalletProvider({ children }: WalletProviderProps) {
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
         const network = await provider.getNetwork();
-        console.log("Real wallet connected to address:", address, "network:", network.chainId);
+        console.log(
+          "Real wallet connected to address:",
+          address,
+          "network:",
+          network.chainId
+        );
 
         // Verify the address matches what we got from the request
         if (address.toLowerCase() !== accounts[0].toLowerCase()) {
@@ -378,15 +411,24 @@ export function WalletProvider({ children }: WalletProviderProps) {
             );
 
             newSessionToken = sessionResponse.data.sessionToken;
-            console.log("Backend session created");
+            console.log("Backend session created successfully");
           } catch (error: any) {
             // If backend call fails, just warn but continue with wallet connection
             console.warn("Backend session creation failed:", error);
             if (error.response?.data?.needsRegistration) {
               // This is expected during registration - don't show error
-              console.log("User needs to register first");
+              console.log("User needs to register first - this is normal");
+            } else if (
+              error.response?.status === 500 ||
+              error.code === "ECONNREFUSED"
+            ) {
+              console.log(
+                "Backend server might be down - continuing with wallet connection"
+              );
             } else {
-              toast.error("Failed to create session, but wallet connected");
+              toast.error(
+                "Session creation failed - please try logging in again"
+              );
             }
           }
         }
@@ -409,16 +451,18 @@ export function WalletProvider({ children }: WalletProviderProps) {
       }
     } catch (error: any) {
       console.error("Wallet connection error:", error);
-      
+
       // Check if user rejected the request
       if (error.code === 4001) {
         toast.error("Wallet connection was rejected by user");
       } else if (error.message?.includes("User rejected")) {
         toast.error("Wallet connection was rejected by user");
       } else {
-        toast.error(error.response?.data?.message || "Failed to connect wallet");
+        toast.error(
+          error.response?.data?.message || "Failed to connect wallet"
+        );
       }
-      
+
       await disconnectWallet();
       return false;
     } finally {

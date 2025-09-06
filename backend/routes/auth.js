@@ -516,4 +516,65 @@ router.post("/logout", async (req, res) => {
   }
 });
 
+// Update user role (for profile page)
+router.post("/update-role", async (req, res) => {
+  try {
+    const { walletAddress, newRole, sessionToken } = req.body;
+
+    if (!walletAddress || !newRole) {
+      return res.status(400).json({
+        success: false,
+        message: "Wallet address and new role are required",
+      });
+    }
+
+    // Verify session if provided
+    if (sessionToken) {
+      const session = await UserSession.findOne({
+        sessionToken,
+        walletAddress,
+      });
+      if (!session) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid session",
+        });
+      }
+    }
+
+    // Find and update user
+    let user = await User.findOne({ walletAddress });
+    if (!user) {
+      // Create user if doesn't exist
+      user = new User({
+        walletAddress,
+        role: newRole,
+        username: `user_${walletAddress.slice(2, 8)}`,
+        email: `${walletAddress.slice(2, 8)}@example.com`,
+      });
+    } else {
+      user.role = newRole;
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Role updated successfully",
+      user: {
+        walletAddress: user.walletAddress,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Update role error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update role",
+    });
+  }
+});
+
 module.exports = router;

@@ -61,6 +61,21 @@ const commitmentSchema = new mongoose.Schema(
     // Privacy metadata (never store actual amounts!)
     donorAddress: String, // Optional: for public leaderboards (if desired)
 
+    // Reveal mechanism for funding progress
+    isRevealed: {
+      type: Boolean,
+      default: false,
+    },
+    revealedAmount: {
+      type: String, // Store as string to preserve precision
+    },
+    revealTimestamp: {
+      type: Date,
+    },
+
+    // Legacy compatibility fields
+    amount: String, // For backward compatibility
+
     // Midnight-specific fields
     midnightTxHash: String,
     midnightBlockNumber: Number,

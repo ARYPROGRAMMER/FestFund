@@ -44,8 +44,11 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
   const [walletConnecting, setWalletConnecting] = useState(false);
 
   const handleWalletConnect = async () => {
-    console.log("handleWalletConnect called", { walletConnecting, walletConnected });
-    
+    console.log("handleWalletConnect called", {
+      walletConnecting,
+      walletConnected,
+    });
+
     if (walletConnecting || walletConnected) return;
 
     setWalletConnecting(true);
@@ -58,7 +61,7 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
       console.log("Calling onConnectWallet...");
       const success = await onConnectWallet();
       console.log("onConnectWallet result:", success);
-      
+
       if (success) {
         setSuccess("Wallet connected successfully!");
       } else {
@@ -77,24 +80,50 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
     setError("");
     setSuccess("");
 
+    // Enhanced validation
     if (!walletConnected) {
       setError("Please connect your wallet first");
       return;
     }
 
-    if (!credentials.username) {
+    if (!credentials.username.trim()) {
       setError("Please enter a username");
       return;
     }
 
-    if (!isLogin && !credentials.email) {
-      setError("Please enter your email address");
+    if (credentials.username.trim().length < 3) {
+      setError("Username must be at least 3 characters long");
       return;
     }
 
-    if (!isLogin && !credentials.email.includes("@")) {
-      setError("Please enter a valid email address");
+    if (credentials.username.trim().length > 20) {
+      setError("Username must be less than 20 characters");
       return;
+    }
+
+    // Username validation - alphanumeric and underscore only
+    if (!/^[a-zA-Z0-9_]+$/.test(credentials.username.trim())) {
+      setError("Username can only contain letters, numbers, and underscores");
+      return;
+    }
+
+    if (!isLogin) {
+      if (!credentials.email.trim()) {
+        setError("Please enter your email address");
+        return;
+      }
+
+      // Enhanced email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(credentials.email.trim())) {
+        setError("Please enter a valid email address");
+        return;
+      }
+
+      if (!selectedRole) {
+        setError("Please select an account type");
+        return;
+      }
     }
 
     try {
@@ -102,7 +131,8 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       const success = await onSubmit({
-        ...credentials,
+        username: credentials.username.trim(),
+        email: credentials.email.trim(),
         role: selectedRole,
       });
       if (success) {
@@ -115,17 +145,17 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
   };
 
   return (
-    <Card className="bg-white dark:bg-slate-800 shadow-xl max-w-md mx-auto">
+    <Card className="bg-gray-900/90 backdrop-blur-sm border-gray-700 shadow-2xl max-w-md mx-auto">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-2xl justify-center">
-          <Shield className="w-6 h-6 text-purple-600" />
+        <CardTitle className="flex items-center gap-2 text-2xl justify-center bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+          <Shield className="w-6 h-6 text-purple-400" />
           {isLogin ? "Login" : "Register"}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
           {error && (
-            <Alert variant="destructive">
+            <Alert className="bg-red-900/20 border-red-700 text-red-400">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
@@ -133,12 +163,10 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
           )}
 
           {success && (
-            <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800 dark:text-green-200">
-                Success!
-              </AlertTitle>
-              <AlertDescription className="text-green-700 dark:text-green-300">
+            <Alert className="bg-green-900/20 border-green-700 text-green-400">
+              <CheckCircle className="h-4 w-4 text-green-400" />
+              <AlertTitle className="text-green-400">Success!</AlertTitle>
+              <AlertDescription className="text-green-400">
                 {success}
               </AlertDescription>
             </Alert>
@@ -146,12 +174,12 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
 
           {/* Wallet Connection Section */}
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
+            <h3 className="text-lg font-semibold text-white">
               Step 1: Connect Wallet
             </h3>
 
             {!walletConnected && (
-              <Alert>
+              <Alert className="bg-blue-900/20 border-blue-700 text-blue-400">
                 <Info className="h-4 w-4" />
                 <AlertTitle>Wallet Required</AlertTitle>
                 <AlertDescription>
@@ -191,12 +219,12 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
 
           {/* Authentication Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
+            <h3 className="text-lg font-semibold text-white">
               Step 2: {isLogin ? "Sign Message to Login" : "Create Account"}
             </h3>
 
             {isLogin && (
-              <Alert>
+              <Alert className="bg-blue-900/20 border-blue-700 text-blue-400">
                 <Info className="h-4 w-4" />
                 <AlertTitle>Secure Login</AlertTitle>
                 <AlertDescription>
@@ -207,7 +235,9 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
             )}
 
             <div>
-              <label className="text-sm font-medium block mb-2">Username</label>
+              <label className="text-sm font-medium text-gray-300 block mb-2">
+                Username
+              </label>
               <Input
                 placeholder="Enter your username"
                 value={credentials.username}
@@ -218,12 +248,13 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
                   }))
                 }
                 disabled={isLoading || !walletConnected}
+                className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
               />
             </div>
 
             {!isLogin && (
               <div>
-                <label className="text-sm font-medium block mb-2">
+                <label className="text-sm font-medium text-gray-300 block mb-2">
                   Email Address
                 </label>
                 <Input
@@ -237,8 +268,9 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
                     }))
                   }
                   disabled={isLoading || !walletConnected}
+                  className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
                 />
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   We'll use this for important notifications about your
                   campaigns
                 </p>
@@ -247,7 +279,7 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
 
             {!isLogin && (
               <div>
-                <label className="text-sm font-medium block mb-3">
+                <label className="text-sm font-medium text-gray-300 block mb-3">
                   Account Type
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -256,8 +288,8 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
                     onClick={() => setSelectedRole("donor")}
                     className={`p-3 border-2 rounded-lg text-sm font-medium transition-all ${
                       selectedRole === "donor"
-                        ? "border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-900 dark:text-purple-200"
-                        : "border-slate-200 hover:border-slate-300 dark:border-slate-600 dark:hover:border-slate-500"
+                        ? "border-purple-500 bg-purple-900/20 text-purple-300"
+                        : "border-gray-600 hover:border-gray-500 bg-gray-800 text-gray-300 hover:bg-gray-700"
                     }`}
                     disabled={isLoading || !walletConnected}
                   >
@@ -273,8 +305,8 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
                     onClick={() => setSelectedRole("organizer")}
                     className={`p-3 border-2 rounded-lg text-sm font-medium transition-all ${
                       selectedRole === "organizer"
-                        ? "border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-900 dark:text-purple-200"
-                        : "border-slate-200 hover:border-slate-300 dark:border-slate-600 dark:hover:border-slate-500"
+                        ? "border-purple-500 bg-purple-900/20 text-purple-300"
+                        : "border-gray-600 hover:border-gray-500 bg-gray-800 text-gray-300 hover:bg-gray-700"
                     }`}
                     disabled={isLoading || !walletConnected}
                   >
@@ -309,15 +341,15 @@ export const AuthenticationForm: React.FC<AuthenticationFormProps> = ({
           </form>
 
           {/* Toggle Mode */}
-          <div className="text-center pt-4 border-t">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+          <div className="text-center pt-4 border-t border-gray-700">
+            <p className="text-sm text-gray-400">
               {isLogin ? "Don't have an account?" : "Already have an account?"}
             </p>
             <Button
               variant="ghost"
               onClick={onToggleMode}
               disabled={isLoading}
-              className="text-purple-600 hover:text-purple-700"
+              className="text-purple-400 hover:text-purple-300 hover:bg-purple-900/20"
             >
               {isLogin ? "Create new account" : "Login instead"}
             </Button>

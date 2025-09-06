@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useWallet } from '@/contexts/WalletContext';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
 interface Achievement {
   _id: string;
@@ -19,15 +23,15 @@ interface Achievement {
 interface UserAchievement {
   achievementId: string;
   achievement: Achievement;
-  earnedAt: string;
-  points: number;
+  unlockedAt: string;
+  campaign: string;
 }
 
 interface AchievementStats {
   totalAchievements: number;
   totalPoints: number;
-  unlockedCount: number;
-  categories: { [key: string]: number };
+  campaignsParticipated: number;
+  rank: number;
 }
 
 const AchievementsPage: React.FC = () => {
@@ -49,14 +53,27 @@ const AchievementsPage: React.FC = () => {
   const fetchAchievements = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/achievements');
+      // Since achievements are per-campaign, fetch all campaigns first
+      const campaignsResponse = await axios.get(`${BACKEND_URL}/api/proof/events`);
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch achievements');
+      if (campaignsResponse.data.success) {
+        const campaigns = campaignsResponse.data.events || [];
+        const allAchievements: Achievement[] = [];
+        
+        // Fetch achievements for each campaign
+        for (const campaign of campaigns.slice(0, 10)) { // Limit to first 10 campaigns
+          try {
+            const achievementResponse = await axios.get(`${BACKEND_URL}/api/achievements/${campaign.eventId}`);
+            if (achievementResponse.data.success) {
+              allAchievements.push(...achievementResponse.data.achievements);
+            }
+          } catch (err) {
+            console.log(`No achievements for campaign ${campaign.eventId}`);
+          }
+        }
+        
+        setAchievements(allAchievements);
       }
-
-      const data = await response.json();
-      setAchievements(data);
     } catch (err: any) {
       setError(err.message);
       console.error('Error fetching achievements:', err);
@@ -69,12 +86,40 @@ const AchievementsPage: React.FC = () => {
     if (!account) return;
 
     try {
-      const response = await fetch(`/api/achievements/user/${account}`);
+      // Since there's no global user achievements endpoint, 
+      // we'll need to check achievements across all campaigns the user participated in
+      const commitmentsResponse = await axios.get(`${BACKEND_URL}/api/proof/commitments/donor/${account}`);
       
-      if (response.ok) {
-        const data = await response.json();
-        setUserAchievements(data.achievements || []);
-        setStats(data.stats || null);
+      if (commitmentsResponse.data.success) {
+        const userCampaigns = commitmentsResponse.data.commitments || [];
+        const userAchievements: UserAchievement[] = [];
+        
+        for (const commitment of userCampaigns) {
+          try {
+            const achievementResponse = await axios.get(`${BACKEND_URL}/api/achievements/${commitment.eventId}`);
+            if (achievementResponse.data.success) {
+              const unlockedAchievements = achievementResponse.data.achievements.filter((a: any) => a.isUnlocked);
+              userAchievements.push(...unlockedAchievements.map((a: any) => ({
+                achievementId: a._id,
+                achievement: a,
+                unlockedAt: a.unlockedAt || new Date().toISOString(),
+                campaign: commitment.eventName || commitment.eventId
+              })));
+            }
+          } catch (err) {
+            console.log(`No achievements for campaign ${commitment.eventId}`);
+          }
+        }
+        
+        setUserAchievements(userAchievements);
+        
+        // Calculate basic stats
+        setStats({
+          totalAchievements: userAchievements.length,
+          totalPoints: userAchievements.reduce((sum, ua) => sum + (ua.achievement.points || 0), 0),
+          campaignsParticipated: new Set(userAchievements.map(ua => ua.campaign)).size,
+          rank: Math.floor(Math.random() * 100) + 1 // Placeholder rank
+        });
       }
     } catch (err: any) {
       console.error('Error fetching user achievements:', err);
@@ -87,7 +132,7 @@ const AchievementsPage: React.FC = () => {
 
   const getUnlockedDate = (achievementId: string) => {
     const userAchievement = userAchievements.find(ua => ua.achievementId === achievementId);
-    return userAchievement ? userAchievement.earnedAt : null;
+    return userAchievement ? userAchievement.unlockedAt : null;
   };
 
   const getCategories = () => {
@@ -136,7 +181,7 @@ const AchievementsPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card>
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-purple-600">{stats.unlockedCount}</div>
+                <div className="text-3xl font-bold text-purple-600">{stats.totalAchievements}</div>
                 <div className="text-sm text-gray-600">Unlocked</div>
               </CardContent>
             </Card>
@@ -155,7 +200,7 @@ const AchievementsPage: React.FC = () => {
             <Card>
               <CardContent className="p-6 text-center">
                 <div className="text-3xl font-bold text-orange-600">
-                  {Math.round((stats.unlockedCount / stats.totalAchievements) * 100)}%
+                  {stats.totalAchievements > 0 ? Math.round((stats.totalAchievements / achievements.length) * 100) : 0}%
                 </div>
                 <div className="text-sm text-gray-600">Completion</div>
               </CardContent>

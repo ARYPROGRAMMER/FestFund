@@ -66,6 +66,16 @@ export const PrivateCommitmentForm: React.FC<RealCommitmentFormProps> = ({
   const zkConfig = getZKConfig();
   const zkInfo = getZKModeInfo(zkConfig);
 
+  // Debug logging
+  console.log("🔧 ZK Config Debug:", {
+    mode: zkConfig.mode,
+    isMidnightNetwork: zkConfig.isMidnightNetwork,
+    isOwnKeys: zkConfig.isOwnKeys,
+    networkName: zkConfig.networkName,
+    icon: zkInfo.icon,
+    name: zkInfo.name,
+  });
+
   const handleGenerateCommitment = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setError("Please enter a valid donation amount");
@@ -75,7 +85,7 @@ export const PrivateCommitmentForm: React.FC<RealCommitmentFormProps> = ({
     setIsGenerating(true);
     setError("");
     setSuccess(null);
-    setStep("commitment");
+    setStep("payment"); // Go to payment first
 
     try {
       // Get user's wallet address
@@ -87,7 +97,117 @@ export const PrivateCommitmentForm: React.FC<RealCommitmentFormProps> = ({
         throw new Error("Please connect your wallet first");
       }
 
-      console.log(`🔒 Generating ${zkConfig.mode} ZK proof for donation...`);
+      console.log(`� Proceeding to payment for ${amount} ETH donation...`);
+      // Payment will be handled in the next step
+    } catch (err: any) {
+      console.error("Preparation failed:", err);
+      setError(err.message || "Failed to prepare donation");
+      setStep("amount");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!organizerAddress) {
+      setError("Missing payment information");
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    setError("");
+
+    try {
+      const useMockWallet = process.env.NEXT_PUBLIC_USE_MOCK_WALLET === "true";
+      let txHash: string;
+
+      if (useMockWallet) {
+        // Mock payment for testing with hardhat
+        console.log(`💰 Mock payment: ${amount} ETH to ${organizerAddress}`);
+
+        // Simulate payment delay
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Generate mock transaction hash
+        txHash = "0x" + Math.random().toString(16).substr(2, 64);
+        console.log(`📝 Mock transaction: ${txHash}`);
+      } else {
+        // Real wallet payment
+        console.log(`💸 Real payment: ${amount} ETH to ${organizerAddress}`);
+
+        // Check if ethereum is available
+        if (!(window as any).ethereum) {
+          throw new Error("Please connect your wallet first");
+        }
+
+        // Initialize Web3 provider - handle both ethers v5 and v6
+        let provider, signer, amountWei;
+
+        if ((window as any).ethers) {
+          // Try ethers v6 first
+          if ((window as any).ethers.BrowserProvider) {
+            provider = new (window as any).ethers.BrowserProvider(
+              (window as any).ethereum
+            );
+            signer = await provider.getSigner();
+            amountWei = (window as any).ethers.parseEther(amount);
+          }
+          // Fallback to ethers v5
+          else if ((window as any).ethers.providers) {
+            provider = new (window as any).ethers.providers.Web3Provider(
+              (window as any).ethereum
+            );
+            signer = provider.getSigner();
+            amountWei = (window as any).ethers.utils.parseEther(amount);
+          } else {
+            throw new Error("Ethers library not properly loaded");
+          }
+        } else {
+          throw new Error("Ethers library not found. Please refresh the page.");
+        }
+
+        // Send transaction
+        const tx = await signer.sendTransaction({
+          to: organizerAddress,
+          value: amountWei,
+          gasLimit: 21000,
+        });
+
+        console.log(`📝 Transaction sent: ${tx.hash}`);
+
+        // Wait for confirmation
+        await tx.wait();
+        txHash = tx.hash;
+      }
+
+      setPaymentTxHash(txHash);
+      console.log(`✅ Payment confirmed: ${txHash}`);
+
+      // Now generate ZK commitment after successful payment
+      setStep("commitment");
+      await generateCommitmentAfterPayment(txHash);
+    } catch (err: any) {
+      console.error("Payment failed:", err);
+      setError(`Payment failed: ${err.message || "Unknown error"}`);
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const generateCommitmentAfterPayment = async (paymentTxHash: string) => {
+    try {
+      console.log(
+        `🔒 Generating ${zkConfig.mode} ZK commitment after successful payment...`
+      );
+
+      // Get user's wallet address
+      const accounts = await (window as any).ethereum?.request({
+        method: "eth_accounts",
+      });
+
+      if (!accounts || accounts.length === 0) {
+        throw new Error("Wallet not connected");
+      }
 
       const BACKEND_URL =
         process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
@@ -104,7 +224,8 @@ export const PrivateCommitmentForm: React.FC<RealCommitmentFormProps> = ({
             amount: amount,
             eventId: eventId,
             donorAddress: accounts[0],
-            zkMode: zkConfig.mode, // Pass the ZK mode to backend
+            zkMode: zkConfig.mode,
+            paymentTxHash: paymentTxHash, // Include payment transaction hash
           }),
         }
       );
@@ -116,83 +237,30 @@ export const PrivateCommitmentForm: React.FC<RealCommitmentFormProps> = ({
       }
 
       setCommitment(result);
-      setStep("payment");
+      setSuccess({
+        commitmentId: result.commitmentId,
+        commitment: result.commitment,
+        txHash: paymentTxHash,
+      });
+      setStep("complete");
 
       if (onCommitmentGenerated) {
         onCommitmentGenerated(result);
       }
-    } catch (err: any) {
-      console.error("ZK commitment generation failed:", err);
-      setError(err.message || "Failed to generate commitment");
-      setStep("amount");
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handlePayment = async () => {
-    if (!commitment || !organizerAddress) {
-      setError("Missing payment information");
-      return;
-    }
-
-    setIsProcessingPayment(true);
-    setError("");
-
-    try {
-      // Initialize Web3 provider
-      const provider = new (window as any).ethers.providers.Web3Provider(
-        (window as any).ethereum
-      );
-      const signer = provider.getSigner();
-
-      // Convert amount from ETH to Wei
-      const amountWei = (window as any).ethers.utils.parseEther(amount);
-
-      console.log(
-        `💸 Processing payment of ${amount} ETH to ${organizerAddress}`
-      );
-
-      // Send transaction
-      const tx = await signer.sendTransaction({
-        to: organizerAddress,
-        value: amountWei,
-        gasLimit: 21000, // Standard gas limit for ETH transfer
-      });
-
-      console.log(`📝 Transaction sent: ${tx.hash}`);
-      setPaymentTxHash(tx.hash);
-
-      // Wait for confirmation
-      await tx.wait();
-
-      console.log(`✅ Payment confirmed: ${tx.hash}`);
-
-      // Update success state
-      setSuccess({
-        commitmentId: commitment.commitmentId,
-        commitment: commitment.commitment,
-        txHash: tx.hash,
-      });
-
-      setStep("complete");
 
       if (onPaymentComplete) {
-        onPaymentComplete(tx.hash, amount);
+        onPaymentComplete(paymentTxHash, amount);
       }
 
       if (onCommitmentSubmit) {
-        await onCommitmentSubmit(
-          amount,
-          commitment.nonce,
-          commitment.commitment
-        );
+        await onCommitmentSubmit(amount, result.nonce, result.commitment);
       }
     } catch (err: any) {
-      console.error("Payment failed:", err);
-      setError(`Payment failed: ${err.message || "Unknown error"}`);
+      console.error("ZK commitment generation failed:", err);
+      setError(`Commitment generation failed: ${err.message}`);
+      setStep("payment"); // Go back to payment step
     } finally {
-      setIsProcessingPayment(false);
+      setIsGenerating(false);
     }
   };
 
@@ -263,8 +331,12 @@ export const PrivateCommitmentForm: React.FC<RealCommitmentFormProps> = ({
         return (
           <div className="text-center py-8">
             <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-blue-600" />
-            <h3 className="text-lg font-medium mb-2">Generating ZK Proof</h3>
-            <p className="text-slate-600">This may take a few moments...</p>
+            <h3 className="text-lg font-medium mb-2 text-slate-900 dark:text-slate-100">
+              Generating ZK Proof
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400">
+              This may take a few moments...
+            </p>
           </div>
         );
 
@@ -281,8 +353,10 @@ export const PrivateCommitmentForm: React.FC<RealCommitmentFormProps> = ({
             </Alert>
 
             <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
-              <h4 className="font-medium mb-2">Payment Details</h4>
-              <div className="space-y-2 text-sm">
+              <h4 className="font-medium mb-2 text-slate-900 dark:text-slate-100">
+                Payment Details
+              </h4>
+              <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                 <div className="flex justify-between">
                   <span>Amount:</span>
                   <span className="font-medium">{amount} ETH</span>
@@ -321,20 +395,20 @@ export const PrivateCommitmentForm: React.FC<RealCommitmentFormProps> = ({
         return (
           <div className="text-center py-6">
             <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
-            <h3 className="text-xl font-semibold mb-2 text-green-700">
+            <h3 className="text-xl font-semibold mb-2 text-green-700 dark:text-green-400">
               Donation Complete!
             </h3>
-            <p className="text-slate-600 mb-4">
+            <p className="text-slate-600 dark:text-slate-400 mb-4">
               Your anonymous donation has been processed successfully.
             </p>
 
             {success && (
               <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 space-y-2">
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-300">
                   <span>Transaction Hash:</span>
                   <button
                     onClick={() => copyToClipboard(success.txHash)}
-                    className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                   >
                     {success.txHash.slice(0, 10)}...{success.txHash.slice(-8)}
                     <Copy className="w-3 h-3" />
@@ -345,7 +419,7 @@ export const PrivateCommitmentForm: React.FC<RealCommitmentFormProps> = ({
                   href={getTransactionUrl(success.txHash)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                  className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   View on Explorer
                   <ExternalLink className="w-3 h-3" />
