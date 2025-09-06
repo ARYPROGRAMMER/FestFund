@@ -12,32 +12,38 @@ const app = express();
 const PORT = process.env.BACKEND_PORT || 3001;
 
 // Security middleware
-app.use(helmet({
-  crossOriginEmbedderPolicy: false, // Allow embedding for iframe integration
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://rpc.testnet-02.midnight.network", "wss://rpc.testnet-02.midnight.network"],
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false, // Allow embedding for iframe integration
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: [
+          "'self'",
+          "https://rpc.testnet-02.midnight.network",
+          "wss://rpc.testnet-02.midnight.network",
+        ],
+      },
     },
-  },
-}));
+  })
+);
 app.use(
   cors({
     origin: [
-      "http://localhost:3000", 
+      "http://localhost:3000",
       "http://localhost:3001",
       "http://127.0.0.1:3000",
       "http://127.0.0.1:3001",
       process.env.FRONTEND_URL,
-      process.env.APP_URL
+      process.env.APP_URL,
     ].filter(Boolean),
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
@@ -71,6 +77,8 @@ const authRouter = require("./routes/auth");
 app.use("/api/auth", authRouter);
 app.use("/api/proof", require("./routes/proofNew"));
 app.use("/api/achievements", require("./routes/achievements"));
+app.use("/api/rankings", require("./routes/rankings"));
+app.use("/api/privacy", require("./routes/privacy"));
 
 // Health check endpoint
 app.get("/health", (req, res) => {

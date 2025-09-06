@@ -265,9 +265,13 @@ router.get("/events/:eventId", async (req, res) => {
 router.get("/events/organizer/:address", async (req, res) => {
   try {
     const { address } = req.params;
+    const normalizedAddress = address.toLowerCase(); // Normalize to lowercase
+
+    console.log(`🔍 Fetching events for organizer: ${normalizedAddress}`);
+
     // Query by organizer field (which contains wallet address)
     const events = await Event.find({
-      organizer: { $regex: new RegExp(`^${address}$`, "i") },
+      organizer: normalizedAddress,
     }).sort({ createdAt: -1 });
 
     // Add commitment data for organizer events
@@ -338,8 +342,12 @@ router.get("/events/organizer/:address", async (req, res) => {
 router.get("/commitments/donor/:address", async (req, res) => {
   try {
     const { address } = req.params;
+    const normalizedAddress = address.toLowerCase(); // Normalize to lowercase
+
+    console.log(`🔍 Fetching commitments for donor: ${normalizedAddress}`);
+
     const commitments = await Commitment.find({
-      donorAddress: { $regex: new RegExp(`^${address}$`, "i") },
+      donorAddress: normalizedAddress,
     }).sort({ timestamp: -1 });
 
     // Add event data to commitments

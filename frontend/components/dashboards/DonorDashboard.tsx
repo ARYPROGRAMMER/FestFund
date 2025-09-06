@@ -1,7 +1,11 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { motion, useAnimation, useInView } from "framer-motion";
+import axios from "axios";
+import toast from "react-hot-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { Progress } from "../ui/progress";
 import {
   Heart,
   Shield,
@@ -14,24 +18,77 @@ import {
   Award,
   Calendar,
   Target,
+  Activity,
+  Compass,
+  Gift,
+  RefreshCw,
+  Loader2,
+  Search,
+  Filter,
+  BarChart3,
+  Clock,
 } from "lucide-react";
 
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+
+// Animation component for smooth entrance effects
+const AnimatedSection: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}> = ({ children, className = "", delay = 0 }) => {
+  const controls = useAnimation();
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.1 });
+
+  useEffect(() => {
+    if (inView) {
+      controls.start("visible");
+    }
+  }, [controls, inView]);
+
+  return (
+    <motion.div
+      ref={ref}
+      animate={controls}
+      initial="hidden"
+      variants={{
+        hidden: { opacity: 0, y: 30 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          transition: { duration: 0.6, ease: "easeOut", delay },
+        },
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
 interface Event {
+  _id: string;
   eventId: string;
   name: string;
   description: string;
   totalAmount?: number;
+  currentAmount?: number;
   uniqueDonors?: number;
   targetAmount: number;
   status: string;
+  isActive?: boolean;
   createdAt: string;
   organizerAddress: string;
-  ranking: {
+  deadline?: string;
+  milestones?: number[];
+  ranking?: {
     score: number;
     views: number;
     likes: number;
   };
-  metadata: {
+  metadata?: {
     category: string;
     tags: string[];
     imageUrl?: string;
@@ -65,216 +122,509 @@ interface DonorDashboardProps {
 
 export const DonorDashboard: React.FC<DonorDashboardProps> = ({
   user,
-  events,
+  events: initialEvents,
   onDiscoverEvents,
   onViewEvent,
 }) => {
-  // For demonstration, we'll use the user stats
-  // In a real app, you'd fetch actual donation history
-  const recentDonations = events.slice(0, 3); // Mock recent events the user might have donated to
+  const [events, setEvents] = useState<Event[]>(initialEvents);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Filter events to find interesting ones for donors
+  const activeEvents = events.filter(
+    (event) => event.status === "active" || event.isActive === true
+  );
+
+  const recentEvents = events
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 6);
+
+  // Fetch all events for discovery
+  const fetchEvents = async (showLoader = false) => {
+    try {
+      if (showLoader) setLoading(true);
+      else setRefreshing(true);
+
+      console.log("🔍 Fetching all events for donor discovery");
+
+      const response = await axios.get(`${BACKEND_URL}/api/proof/events`);
+
+      if (response.data.success) {
+        const allEvents = response.data.events || [];
+        console.log("✅ Found", allEvents.length, "events");
+        setEvents(allEvents);
+
+        if (allEvents.length > 0) {
+          toast.success(`Discovered ${allEvents.length} campaign(s)`);
+        }
+      } else {
+        console.warn("⚠️ No events found");
+        setEvents([]);
+      }
+    } catch (error: any) {
+      console.error("❌ Error fetching events:", error);
+      toast.error("Failed to load campaigns");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Load events on component mount
+  useEffect(() => {
+    if (initialEvents.length === 0) {
+      fetchEvents(true);
+    }
+  }, []);
+
+  // Update events when props change
+  useEffect(() => {
+    if (initialEvents.length > 0) {
+      setEvents(initialEvents);
+    }
+  }, [initialEvents]);
+
+  const getStatusColor = (event: Event) => {
+    if (event.status === "active" || event.isActive)
+      return "bg-green-500/20 text-green-400 border-green-500/30";
+    if (event.status === "completed")
+      return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+    if (event.status === "cancelled")
+      return "bg-red-500/20 text-red-400 border-red-500/30";
+    return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+  };
+
+  const getProgressPercentage = (event: Event) => {
+    const current = event.currentAmount || event.totalAmount || 0;
+    const target = event.targetAmount || 1;
+    return Math.min((current / target) * 100, 100);
+  };
+
+  const handleRefresh = () => {
+    fetchEvents(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full mx-auto mb-6"
+          />
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-xl text-gray-300"
+          >
+            Discovering campaigns...
+          </motion.p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Heart className="w-8 h-8 text-green-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
-              Donor Dashboard
-            </h1>
-            <p className="text-slate-600 dark:text-slate-300">
-              Welcome back, {user.displayName}! Thank you for your generosity.
-            </p>
-          </div>
-        </div>
-        <Button
-          onClick={onDiscoverEvents}
-          className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
-        >
-          <Globe className="w-4 h-4 mr-2" />
-          Discover Campaigns
-        </Button>
-      </div>
+    <div className="min-h-screen bg-black">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-grid-slate-800 bg-[size:20px_20px] opacity-5 pointer-events-none"></div>
 
-      {/* Statistics Cards */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header Section */}
+        <AnimatedSection className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Heart className="w-8 h-8 text-white" />
+              </div>
               <div>
-                <h3 className="text-2xl font-bold">
-                  {user.stats.donationsMade || 0}
-                </h3>
-                <p className="text-green-100">Donations Made</p>
-              </div>
-              <Heart className="w-8 h-8 text-green-200" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-2xl font-bold">
-                  {(user.stats.totalDonated || 0).toFixed(2)} ETH
-                </h3>
-                <p className="text-blue-100">Total Donated</p>
-              </div>
-              <DollarSign className="w-8 h-8 text-blue-200" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-2xl font-bold">
-                  {user.stats.eventsSupported || 0}
-                </h3>
-                <p className="text-purple-100">Campaigns Supported</p>
-              </div>
-              <Users className="w-8 h-8 text-purple-200" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-orange-500 to-red-600 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-2xl font-bold">
-                  {user.stats.reputation || 0}
-                </h3>
-                <p className="text-orange-100">Privacy Score</p>
-              </div>
-              <Shield className="w-8 h-8 text-orange-200" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ZK Privacy Stats */}
-      <Card className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-800 dark:to-blue-900 border-blue-200 dark:border-blue-700">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
-            <Shield className="w-5 h-5" />
-            Zero-Knowledge Privacy Stats
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">100%</div>
-              <div className="text-sm text-blue-700 dark:text-blue-300">
-                Privacy Protected
+                <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+                  Donor Dashboard
+                </h1>
+                <p className="text-lg text-gray-300 mt-1">
+                  Welcome back,{" "}
+                  <span className="font-semibold text-green-300">
+                    {user.displayName || user.username}
+                  </span>
+                  ! Thank you for your generosity.
+                </p>
               </div>
             </div>
-            <div className="text-center p-4 bg-green-100 dark:bg-green-900 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">
-                {user.stats.donationsMade || 0}
-              </div>
-              <div className="text-sm text-green-700 dark:text-green-300">
-                Anonymous Donations
-              </div>
-            </div>
-            <div className="text-center p-4 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">∞</div>
-              <div className="text-sm text-purple-700 dark:text-purple-300">
-                Identity Protection
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-green-500" />
-            Recent Campaign Activity
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {recentDonations.length === 0 ? (
-            <div className="text-center py-12">
-              <Heart className="w-16 h-16 mx-auto mb-4 text-slate-400" />
-              <h3 className="text-xl font-semibold mb-2 text-slate-600 dark:text-slate-300">
-                Start Making a Difference
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-6">
-                Discover amazing campaigns and make your first anonymous
-                donation!
-              </p>
+            <div className="flex items-center gap-3">
               <Button
-                onClick={onDiscoverEvents}
-                className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
+                onClick={handleRefresh}
+                variant="outline"
+                disabled={refreshing}
+                className="text-gray-300 border-gray-600 hover:border-green-500 hover:text-green-400 transition-all duration-300"
               >
-                <Globe className="w-4 h-4 mr-2" />
-                Explore Campaigns
+                {refreshing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                Refresh
               </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {recentDonations.map((event) => (
-                <div
-                  key={event.eventId}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Button
+                  onClick={onDiscoverEvents}
+                  size="lg"
+                  className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white shadow-xl hover:shadow-green-500/25 transition-all duration-300 px-8 py-3"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-                      <Heart className="w-6 h-6 text-white" />
-                    </div>
+                  <Compass className="w-5 h-5 mr-2" />
+                  Discover Campaigns
+                </Button>
+              </motion.div>
+            </div>
+          </div>
+        </AnimatedSection>
+
+        {/* Statistics Cards */}
+        <AnimatedSection delay={0.1}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <motion.div whileHover={{ scale: 1.02 }}>
+              <Card className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 backdrop-blur-sm border border-green-500/30 hover:border-green-400/50 transition-all duration-300 shadow-xl">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-medium text-slate-800 dark:text-white">
-                        {event.name}
-                      </h4>
-                      <p className="text-sm text-slate-500">
-                        {event.metadata.category} • {event.uniqueDonors || 0}{" "}
-                        donors
+                      <h3 className="text-3xl font-bold text-white">
+                        {user.stats.donationsMade || 0}
+                      </h3>
+                      <p className="text-green-200 font-medium">
+                        Donations Made
                       </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="font-medium text-slate-800 dark:text-white">
-                        {Math.round(
-                          ((event.totalAmount || 0) / event.targetAmount) * 100
-                        )}
-                        %
-                      </div>
-                      <div className="text-sm text-slate-500">
-                        {(event.totalAmount || 0).toFixed(2)} /{" "}
-                        {event.targetAmount} ETH
-                      </div>
+                    <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                      <Heart className="w-6 h-6 text-green-400" />
                     </div>
-                    <Badge
-                      variant={
-                        event.status === "active" ? "default" : "secondary"
-                      }
-                      className={
-                        event.status === "active" ? "bg-green-500" : ""
-                      }
-                    >
-                      {event.status === "active" ? "Active" : "Completed"}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onViewEvent(event.eventId)}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.02 }}>
+              <Card className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 backdrop-blur-sm border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 shadow-xl">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-3xl font-bold text-white">
+                        {(user.stats.totalDonated || 0).toFixed(4)} ETH
+                      </h3>
+                      <p className="text-blue-200 font-medium">Total Donated</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                      <DollarSign className="w-6 h-6 text-blue-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.02 }}>
+              <Card className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 backdrop-blur-sm border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 shadow-xl">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-3xl font-bold text-white">
+                        {user.stats.eventsSupported || 0}
+                      </h3>
+                      <p className="text-purple-200 font-medium">
+                        Campaigns Supported
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                      <Users className="w-6 h-6 text-purple-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.02 }}>
+              <Card className="bg-gradient-to-br from-orange-600/20 to-red-600/20 backdrop-blur-sm border border-orange-500/30 hover:border-orange-400/50 transition-all duration-300 shadow-xl">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-3xl font-bold text-white">
+                        {user.stats.reputation || 100}
+                      </h3>
+                      <p className="text-orange-200 font-medium">
+                        Privacy Score
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center">
+                      <Shield className="w-6 h-6 text-orange-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </AnimatedSection>
+
+        {/* ZK Privacy Stats */}
+        <AnimatedSection delay={0.2}>
+          <Card className="bg-gradient-to-br from-gray-900/50 to-blue-900/20 backdrop-blur-sm border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 shadow-xl mb-8">
+            <CardHeader className="border-b border-gray-700/50">
+              <CardTitle className="flex items-center gap-3 text-xl text-white">
+                <Shield className="w-6 h-6 text-blue-400" />
+                Zero-Knowledge Privacy Protection
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <motion.div whileHover={{ scale: 1.02 }}>
+                  <div className="text-center p-6 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                    <div className="text-4xl font-bold text-blue-400 mb-2">
+                      100%
+                    </div>
+                    <div className="text-blue-200 font-medium">
+                      Privacy Protected
+                    </div>
+                    <div className="text-sm text-gray-400 mt-2">
+                      All donations are anonymous
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }}>
+                  <div className="text-center p-6 bg-green-500/10 border border-green-500/20 rounded-xl">
+                    <div className="text-4xl font-bold text-green-400 mb-2">
+                      {user.stats.donationsMade || 0}
+                    </div>
+                    <div className="text-green-200 font-medium">
+                      Anonymous Donations
+                    </div>
+                    <div className="text-sm text-gray-400 mt-2">
+                      Zero-knowledge verified
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }}>
+                  <div className="text-center p-6 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                    <div className="text-4xl font-bold text-purple-400 mb-2">
+                      ∞
+                    </div>
+                    <div className="text-purple-200 font-medium">
+                      Identity Protection
+                    </div>
+                    <div className="text-sm text-gray-400 mt-2">
+                      Cryptographically secured
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </CardContent>
+          </Card>
+        </AnimatedSection>
+
+        {/* Recent Campaign Activity */}
+        <AnimatedSection delay={0.3}>
+          <Card className="bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 shadow-2xl">
+            <CardHeader className="border-b border-gray-700/50">
+              <CardTitle className="flex items-center gap-3 text-xl text-white">
+                <TrendingUp className="w-6 h-6 text-green-400" />
+                Discover Active Campaigns
+                <Badge
+                  variant="secondary"
+                  className="ml-auto bg-gray-700/50 text-gray-300"
+                >
+                  {activeEvents.length} active
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {refreshing && (
+                <div className="flex items-center justify-center py-4 mb-4">
+                  <Loader2 className="w-6 h-6 animate-spin text-green-400 mr-2" />
+                  <span className="text-gray-300">Refreshing campaigns...</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              )}
+
+              {recentEvents.length === 0 ? (
+                <div className="text-center py-16">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-24 h-24 bg-gradient-to-r from-green-600/20 to-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-6"
+                  >
+                    <Heart className="w-12 h-12 text-green-400" />
+                  </motion.div>
+                  <h3 className="text-2xl font-semibold mb-3 text-white">
+                    Start Making a Difference
+                  </h3>
+                  <p className="text-gray-300 mb-8 max-w-md mx-auto leading-relaxed">
+                    Discover amazing campaigns and make your first anonymous
+                    donation with zero-knowledge privacy protection!
+                  </p>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button
+                      onClick={onDiscoverEvents}
+                      size="lg"
+                      className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white shadow-xl hover:shadow-green-500/25 transition-all duration-300 px-8 py-3"
+                    >
+                      <Compass className="w-5 h-5 mr-2" />
+                      Explore Campaigns
+                    </Button>
+                  </motion.div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentEvents.map((event, index) => {
+                    const progress = getProgressPercentage(event);
+                    const currentAmount =
+                      event.currentAmount || event.totalAmount || 0;
+
+                    return (
+                      <motion.div
+                        key={event.eventId}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="group p-6 bg-gray-800/30 border border-gray-700/50 rounded-xl hover:border-gray-600/50 hover:bg-gray-800/50 transition-all duration-300"
+                      >
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                          <div className="flex items-start gap-4 flex-1">
+                            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                              <Target className="w-8 h-8 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between mb-2">
+                                <h4 className="text-xl font-semibold text-white group-hover:text-green-300 transition-colors line-clamp-1">
+                                  {event.name}
+                                </h4>
+                                <Badge
+                                  className={`${getStatusColor(
+                                    event
+                                  )} ml-4 flex-shrink-0`}
+                                >
+                                  <div
+                                    className={`w-2 h-2 rounded-full mr-2 ${
+                                      event.status === "active" ||
+                                      event.isActive
+                                        ? "bg-green-400 animate-pulse"
+                                        : "bg-gray-400"
+                                    }`}
+                                  />
+                                  {event.status === "active" || event.isActive
+                                    ? "Active"
+                                    : event.status === "completed"
+                                    ? "Completed"
+                                    : event.status === "cancelled"
+                                    ? "Cancelled"
+                                    : "Draft"}
+                                </Badge>
+                              </div>
+                              <p className="text-gray-300 mb-4 line-clamp-2 leading-relaxed">
+                                {event.description}
+                              </p>
+
+                              {/* Progress Bar */}
+                              <div className="mb-4">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-sm text-gray-400">
+                                    Progress
+                                  </span>
+                                  <span className="text-sm font-medium text-white">
+                                    {progress.toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-700/50 rounded-full h-2">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{
+                                      width: `${Math.min(progress, 100)}%`,
+                                    }}
+                                    transition={{
+                                      delay: 0.5 + index * 0.1,
+                                      duration: 1,
+                                    }}
+                                    className="bg-gradient-to-r from-green-500 to-blue-600 h-2 rounded-full"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Stats Row */}
+                              <div className="flex flex-wrap gap-6 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <DollarSign className="w-4 h-4 text-green-400" />
+                                  <span className="text-gray-300">
+                                    <span className="font-semibold text-white">
+                                      {currentAmount.toFixed(4)} ETH
+                                    </span>
+                                    <span className="text-gray-400">
+                                      {" "}
+                                      / {event.targetAmount.toFixed(4)} ETH
+                                    </span>
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Users className="w-4 h-4 text-blue-400" />
+                                  <span className="text-gray-300">
+                                    <span className="font-semibold text-white">
+                                      {event.uniqueDonors || 0}
+                                    </span>{" "}
+                                    supporters
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-purple-400" />
+                                  <span className="text-gray-300">
+                                    {event.metadata?.category || "General"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <motion.div
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onViewEvent(event.eventId)}
+                                className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white transition-all"
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Details
+                              </Button>
+                            </motion.div>
+                            <motion.div
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              <Button
+                                size="sm"
+                                onClick={() => onViewEvent(event.eventId)}
+                                className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white transition-all"
+                              >
+                                <Gift className="w-4 h-4 mr-2" />
+                                Donate
+                              </Button>
+                            </motion.div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </AnimatedSection>
+      </div>
     </div>
   );
 };

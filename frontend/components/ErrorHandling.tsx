@@ -1,7 +1,7 @@
-import React from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { AlertTriangle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import React from "react";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Button } from "./ui/button";
+import { AlertTriangle, RefreshCw, Wifi, WifiOff } from "lucide-react";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -13,7 +13,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -24,7 +27,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
+    console.error("Error caught by boundary:", error, errorInfo);
   }
 
   reset = () => {
@@ -45,31 +48,26 @@ interface ErrorDisplayProps {
   error: string | Error | null;
   retry?: () => void;
   className?: string;
-  variant?: 'default' | 'destructive' | 'warning';
+  variant?: "default" | "destructive" | "warning";
 }
 
 export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   error,
   retry,
-  className = '',
-  variant = 'destructive',
+  className = "",
+  variant = "destructive",
 }) => {
   if (!error) return null;
 
-  const message = typeof error === 'string' ? error : error.message;
-  
+  const message = typeof error === "string" ? error : error.message;
+
   return (
     <Alert variant={variant} className={className}>
       <AlertTriangle className="h-4 w-4" />
       <AlertDescription className="flex items-center justify-between">
         <span>{message}</span>
         {retry && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={retry}
-            className="ml-2"
-          >
+          <Button variant="outline" size="sm" onClick={retry} className="ml-2">
             <RefreshCw className="h-3 w-3 mr-1" />
             Retry
           </Button>
@@ -131,12 +129,12 @@ interface ConnectionStatusProps {
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   isOnline,
   lastSync,
-  className = '',
+  className = "",
 }) => {
   const syncDate = lastSync ? new Date(lastSync) : null;
-  const syncText = syncDate 
+  const syncText = syncDate
     ? `Last sync: ${syncDate.toLocaleTimeString()}`
-    : 'Never synced';
+    : "Never synced";
 
   return (
     <div className={`flex items-center space-x-2 text-sm ${className}`}>
@@ -145,12 +143,10 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       ) : (
         <WifiOff className="h-4 w-4 text-red-500" />
       )}
-      <span className={isOnline ? 'text-green-400' : 'text-red-400'}>
-        {isOnline ? 'Connected' : 'Disconnected'}
+      <span className={isOnline ? "text-green-400" : "text-red-400"}>
+        {isOnline ? "Connected" : "Disconnected"}
       </span>
-      {lastSync && (
-        <span className="text-gray-500">• {syncText}</span>
-      )}
+      {lastSync && <span className="text-gray-500">• {syncText}</span>}
     </div>
   );
 };
@@ -162,7 +158,9 @@ const DefaultErrorFallback: React.FC<{ error: Error; reset: () => void }> = ({
   <div className="min-h-screen bg-black flex items-center justify-center">
     <div className="max-w-md mx-auto p-6 text-center">
       <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-      <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
+      <h2 className="text-xl font-bold text-white mb-2">
+        Something went wrong
+      </h2>
       <p className="text-gray-400 mb-4">{error.message}</p>
       <Button onClick={reset} variant="outline">
         <RefreshCw className="h-4 w-4 mr-2" />

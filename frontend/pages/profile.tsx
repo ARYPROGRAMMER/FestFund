@@ -1,19 +1,25 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { motion, useAnimation, useInView } from "framer-motion";
+import toast from "react-hot-toast";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useWallet } from "@/contexts/WalletContext";
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Progress } from "../components/ui/progress";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { useWallet } from "../contexts/WalletContext";
 import {
   AnimatedCard,
   AnimatedCountUp,
@@ -133,7 +139,7 @@ interface Achievement {
 
 const ProfilePage: React.FC = () => {
   const router = useRouter();
-  const { account, isConnected } = useWallet();
+  const { account, isConnected, disconnectWallet } = useWallet();
 
   // Animation refs
   const heroRef = useRef<HTMLDivElement>(null);
@@ -147,7 +153,7 @@ const ProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "campaigns" | "donations" | "achievements"
+    "overview" | "campaigns" | "donations" | "achievements" | "settings"
   >("overview");
 
   // Framer Motion animations
@@ -457,7 +463,7 @@ const ProfilePage: React.FC = () => {
               onValueChange={(value) => setActiveTab(value as any)}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-4 mb-8">
+              <TabsList className="grid w-full grid-cols-5 mb-8">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="campaigns">
                   Campaigns ({campaigns.length})
@@ -466,6 +472,10 @@ const ProfilePage: React.FC = () => {
                   Donations ({donations.length})
                 </TabsTrigger>
                 <TabsTrigger value="achievements">Achievements</TabsTrigger>
+                <TabsTrigger value="settings">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="tab-content">
@@ -804,6 +814,405 @@ const ProfilePage: React.FC = () => {
                       </AnimatedCard>
                     </div>
                   )}
+                </div>
+              </TabsContent>
+
+              {/* Settings Tab */}
+              <TabsContent value="settings" className="tab-content">
+                <div className="grid lg:grid-cols-2 gap-8">
+                  {/* Wallet Management */}
+                  <AnimatedCard direction="left">
+                    <Card className="bg-gradient-to-br from-gray-900/50 to-blue-900/20 backdrop-blur-sm border border-blue-500/30">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-3 text-xl text-white">
+                          <Settings className="w-6 h-6 text-blue-400" />
+                          Wallet Management
+                        </CardTitle>
+                        <CardDescription className="text-gray-300">
+                          Manage your wallet connections and security settings
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Current Wallet */}
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-xl border border-gray-700/50">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                                <User className="w-5 h-5 text-white" />
+                              </div>
+                              <div>
+                                <p className="text-white font-medium">
+                                  Current Wallet
+                                </p>
+                                <p className="text-gray-400 text-sm font-mono">
+                                  {account
+                                    ? `${account.slice(0, 6)}...${account.slice(
+                                        -4
+                                      )}`
+                                    : "Not connected"}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                <div className="w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse" />
+                                Connected
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {/* Wallet Actions */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <motion.div
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <Button
+                                variant="outline"
+                                className="w-full text-gray-300 border-gray-600 hover:border-blue-500 hover:text-blue-400 transition-all duration-300"
+                                onClick={async () => {
+                                  try {
+                                    await navigator.clipboard.writeText(
+                                      account || ""
+                                    );
+                                    toast.success(
+                                      "Address copied to clipboard!"
+                                    );
+                                  } catch (error) {
+                                    toast.error("Failed to copy address");
+                                  }
+                                }}
+                              >
+                                <Globe className="w-4 h-4 mr-2" />
+                                Copy Address
+                              </Button>
+                            </motion.div>
+                            <motion.div
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <Button
+                                variant="outline"
+                                className="w-full text-gray-300 border-gray-600 hover:border-red-500 hover:text-red-400 transition-all duration-300"
+                                onClick={async () => {
+                                  await disconnectWallet();
+                                  toast.success("Wallet disconnected");
+                                  router.push("/");
+                                }}
+                              >
+                                <Lock className="w-4 h-4 mr-2" />
+                                Disconnect
+                              </Button>
+                            </motion.div>
+                          </div>
+
+                          {/* Role-based Settings */}
+                          <div className="space-y-4 pt-4 border-t border-gray-700/50">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="text-white font-medium">
+                                  Role Settings
+                                </h4>
+                                <p className="text-gray-400 text-sm">
+                                  Current role: {profile?.role || "Unknown"}
+                                </p>
+                              </div>
+                              <Badge
+                                className={`${
+                                  profile?.role === "organizer"
+                                    ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                                    : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                }`}
+                              >
+                                {profile?.role?.toUpperCase() || "UNKNOWN"}
+                              </Badge>
+                            </div>
+
+                            {/* Organizer-specific note */}
+                            {profile?.role === "organizer" && (
+                              <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <User className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                                  <div className="text-sm">
+                                    <p className="text-purple-300 font-medium mb-1">
+                                      Organizer Account
+                                    </p>
+                                    <p className="text-purple-200 text-xs leading-relaxed">
+                                      As an organizer, your wallet address is
+                                      locked for security. You can still make
+                                      donations to campaigns. To become a donor,
+                                      create a new account with a different
+                                      wallet.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Donor-specific functionality */}
+                            {profile?.role === "donor" && (
+                              <div className="space-y-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full text-gray-300 border-gray-600 hover:border-purple-500 hover:text-purple-400 transition-all duration-300"
+                                  onClick={() => {
+                                    // TODO: Implement role switching to organizer
+                                    toast.success(
+                                      "Role switching will be available soon!"
+                                    );
+                                  }}
+                                >
+                                  <Award className="w-4 h-4 mr-2" />
+                                  Become an Organizer
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Network Information */}
+                          <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                <Globe className="w-4 h-4 text-purple-400" />
+                              </div>
+                              <h4 className="text-white font-medium">
+                                Network Status
+                              </h4>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Network:</span>
+                                <span className="text-purple-300">
+                                  Ethereum Mainnet
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Chain ID:</span>
+                                <span className="text-purple-300">1</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Status:</span>
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                  Connected
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </AnimatedCard>
+
+                  {/* Privacy & Security Settings */}
+                  <AnimatedCard direction="right">
+                    <Card className="bg-gradient-to-br from-gray-900/50 to-purple-900/20 backdrop-blur-sm border border-purple-500/30">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-3 text-xl text-white">
+                          <Shield className="w-6 h-6 text-purple-400" />
+                          Privacy & Security
+                        </CardTitle>
+                        <CardDescription className="text-gray-300">
+                          Configure your zero-knowledge privacy settings
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Privacy Level */}
+                        <div className="space-y-4">
+                          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                <Eye className="w-4 h-4 text-blue-400" />
+                              </div>
+                              <h4 className="text-white font-medium">
+                                Privacy Level
+                              </h4>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-300">
+                                  Anonymous Donations
+                                </span>
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                  Enabled
+                                </Badge>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-300">ZK Proofs</span>
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                  Active
+                                </Badge>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-300">
+                                  Identity Protection
+                                </span>
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                  Maximum
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ZK Stats */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+                              <div className="text-2xl font-bold text-green-400 mb-1">
+                                {profile?.zkProofsGenerated || 0}
+                              </div>
+                              <div className="text-sm text-green-200">
+                                ZK Proofs Generated
+                              </div>
+                            </div>
+                            <div className="text-center p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                              <div className="text-2xl font-bold text-purple-400 mb-1">
+                                100%
+                              </div>
+                              <div className="text-sm text-purple-200">
+                                Privacy Score
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Security Actions */}
+                          <div className="space-y-3">
+                            <motion.div
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <Button
+                                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                                onClick={() => {
+                                  toast.success(
+                                    "Privacy settings are already optimal!"
+                                  );
+                                }}
+                              >
+                                <Shield className="w-4 h-4 mr-2" />
+                                Optimize Privacy Settings
+                              </Button>
+                            </motion.div>
+
+                            <motion.div
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <Button
+                                variant="outline"
+                                className="w-full text-gray-300 border-gray-600 hover:border-purple-500 hover:text-purple-400 transition-all duration-300"
+                                onClick={() => {
+                                  router.push("/achievements");
+                                }}
+                              >
+                                <Award className="w-4 h-4 mr-2" />
+                                View Privacy Achievements
+                              </Button>
+                            </motion.div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </AnimatedCard>
+
+                  {/* Account Actions */}
+                  <div className="lg:col-span-2">
+                    <AnimatedCard direction="up">
+                      <Card className="bg-gradient-to-br from-gray-900/50 to-red-900/20 backdrop-blur-sm border border-red-500/30">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-3 text-xl text-white">
+                            <Settings className="w-6 h-6 text-red-400" />
+                            Account Actions
+                          </CardTitle>
+                          <CardDescription className="text-gray-300">
+                            Manage your account and data preferences
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <motion.div
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <Button
+                                variant="outline"
+                                className="w-full text-gray-300 border-gray-600 hover:border-blue-500 hover:text-blue-400 transition-all duration-300"
+                                onClick={() => {
+                                  fetchUserProfile();
+                                  toast.success("Profile data refreshed!");
+                                }}
+                              >
+                                <Activity className="w-4 h-4 mr-2" />
+                                Refresh Data
+                              </Button>
+                            </motion.div>
+
+                            <motion.div
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <Button
+                                variant="outline"
+                                className="w-full text-gray-300 border-gray-600 hover:border-yellow-500 hover:text-yellow-400 transition-all duration-300"
+                                onClick={() => {
+                                  const data = JSON.stringify(
+                                    {
+                                      profile,
+                                      campaigns,
+                                      donations,
+                                      achievements,
+                                    },
+                                    null,
+                                    2
+                                  );
+                                  const blob = new Blob([data], {
+                                    type: "application/json",
+                                  });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = url;
+                                  a.download = `festfund-profile-${account?.slice(
+                                    0,
+                                    6
+                                  )}.json`;
+                                  a.click();
+                                  URL.revokeObjectURL(url);
+                                  toast.success("Profile data exported!");
+                                }}
+                              >
+                                <BarChart3 className="w-4 h-4 mr-2" />
+                                Export Data
+                              </Button>
+                            </motion.div>
+
+                            <motion.div
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <Button
+                                variant="outline"
+                                className="w-full text-gray-300 border-gray-600 hover:border-red-500 hover:text-red-400 transition-all duration-300"
+                                onClick={() => {
+                                  if (
+                                    confirm(
+                                      "Are you sure you want to clear all local data? This action cannot be undone."
+                                    )
+                                  ) {
+                                    localStorage.clear();
+                                    sessionStorage.clear();
+                                    toast.success("Local data cleared!");
+                                    window.location.reload();
+                                  }
+                                }}
+                              >
+                                <Lock className="w-4 h-4 mr-2" />
+                                Clear Data
+                              </Button>
+                            </motion.div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </AnimatedCard>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>

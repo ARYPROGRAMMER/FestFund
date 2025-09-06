@@ -44,7 +44,7 @@ const DEFAULT_CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || "1"); // D
 
 // Mock wallet data for testing
 const MOCK_WALLET = {
-  address: "0x742d35Cc6634C0532925a3b8D0FD67F4C0532925",
+  address: "0x3bb14190f2E9143fdc6E9bc3BB7510B1DaEa5b11",
   chainId: DEFAULT_CHAIN_ID,
 };
 

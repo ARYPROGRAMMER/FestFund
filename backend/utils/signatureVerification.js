@@ -39,7 +39,7 @@ function isMockSignature(signature, expectedAddress) {
   }
   
   // Mock wallet address used in testing
-  const MOCK_WALLET_ADDRESS = "0x742d35Cc6634C0532925a3b8D0FD67F4C0532925";
+  const MOCK_WALLET_ADDRESS = "0x3bb14190f2E9143fdc6E9bc3BB7510B1DaEa5b11";
   
   // Check if this is the mock wallet and signature has mock pattern
   if (expectedAddress.toLowerCase() === MOCK_WALLET_ADDRESS.toLowerCase()) {

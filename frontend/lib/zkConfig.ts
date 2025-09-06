@@ -15,8 +15,34 @@ export interface ZKConfig {
  * Get current ZK mode configuration from environment
  */
 export function getZKConfig(): ZKConfig {
-  const mode = (process.env.NEXT_PUBLIC_ZK_MODE ||
-    "midnight-network") as ZKMode;
+  // Force read from environment variable, with explicit debugging
+  const envMode = process.env.NEXT_PUBLIC_ZK_MODE;
+
+  // Force log to console every time this function is called
+  const debugInfo = {
+    envVariable: envMode,
+    processEnv:
+      typeof process !== "undefined"
+        ? process.env.NEXT_PUBLIC_ZK_MODE
+        : "undefined",
+    allEnvVars:
+      typeof process !== "undefined"
+        ? Object.keys(process.env).filter((key) =>
+            key.startsWith("NEXT_PUBLIC_")
+          )
+        : [],
+    timestamp: new Date().toISOString(),
+  };
+
+  console.log("🔍 ZK Mode Debug:", debugInfo);
+  console.warn(
+    "🚨 Current ZK Mode:",
+    envMode || "UNDEFINED - DEFAULTING TO MIDNIGHT"
+  );
+
+  // Use environment variable or default to midnight-network
+  const mode = (envMode || "midnight-network") as ZKMode;
+  console.log("🔧 Final Mode Selected:", mode);
 
   const config: ZKConfig = {
     mode,

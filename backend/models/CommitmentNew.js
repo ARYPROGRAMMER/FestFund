@@ -58,10 +58,48 @@ const commitmentSchema = new mongoose.Schema(
     },
     verificationTime: Date,
 
+    // Status for tracking commitment lifecycle
+    status: {
+      type: String,
+      enum: ["pending", "confirmed", "cancelled"],
+      default: "confirmed",
+    },
+
     // Privacy metadata (never store actual amounts!)
     donorAddress: String, // Optional: for public leaderboards (if desired)
 
-    // Reveal mechanism for funding progress
+    // Privacy and revelation controls
+    privacyPreferences: {
+      revealAmount: {
+        type: Boolean,
+        default: false, // By default, amounts are private
+      },
+      revealName: {
+        type: Boolean,
+        default: false, // By default, names are private
+      },
+      customDisplayName: {
+        type: String,
+        maxlength: 50, // Optional custom name for leaderboard
+      },
+    },
+
+    // ZK-proven amount (for accurate rankings without revelation)
+    zkProvenAmount: {
+      type: String, // Encrypted/hashed representation of amount for ranking
+      required: true,
+    },
+
+    // Amount range proof (for milestone verification)
+    amountProof: {
+      type: mongoose.Schema.Types.Mixed,
+      required: true, // ZK proof that amount is within valid range
+    },
+
+    // Ranking proof (for position verification)
+    rankingSignals: [String], // Public signals for ranking verification
+
+    // Legacy reveal mechanism (deprecated in favor of privacy preferences)
     isRevealed: {
       type: Boolean,
       default: false,

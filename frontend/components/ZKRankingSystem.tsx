@@ -21,7 +21,8 @@ interface RankingEntry {
   id: string;
   rank: number;
   displayName: string;
-  totalDonated: number;
+  donorAddress: string | null;
+  totalDonated: number | null;
   campaignsSupported: number;
   zkProofsGenerated: number;
   privacyScore: number;
@@ -29,6 +30,9 @@ interface RankingEntry {
   achievements: string[];
   momentum: "rising" | "falling" | "stable";
   lastActive: string;
+  isAmountRevealed?: boolean;
+  isNameRevealed?: boolean;
+  commitmentCount?: number;
 }
 
 interface ZKRankingSystemProps {
@@ -46,6 +50,14 @@ export const ZKRankingSystem: React.FC<ZKRankingSystemProps> = ({
   timeframe = "month",
   showPrivacyMetrics = true,
 }) => {
+  console.log("🎯 ZKRankingSystem component mounted:", {
+    eventId,
+    type,
+    category,
+    timeframe,
+    showPrivacyMetrics,
+  });
+
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTimeframe, setSelectedTimeframe] = useState(timeframe);
@@ -59,6 +71,14 @@ export const ZKRankingSystem: React.FC<ZKRankingSystemProps> = ({
 
   const fetchRankings = async () => {
     setLoading(true);
+    console.log("🎯 ZKRankingSystem: Fetching rankings...", {
+      eventId,
+      type,
+      selectedTimeframe,
+      privacyMode,
+      backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL,
+    });
+
     try {
       const params = new URLSearchParams({
         type,
@@ -68,63 +88,27 @@ export const ZKRankingSystem: React.FC<ZKRankingSystemProps> = ({
         ...(category && { category }),
       });
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/rankings?${params}`
-      );
+      const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/rankings?${params}`;
+      console.log("🌐 API URL:", url);
+
+      const response = await fetch(url);
+      console.log("📡 Response status:", response.status);
 
       if (response.ok) {
         const data = await response.json();
-        setRankings(data.rankings || generateMockRankings());
+        console.log("📊 Rankings data received:", data);
+        setRankings(data.rankings || []);
+      } else {
+        console.error("❌ API response not ok:", response.status);
+        setRankings([]);
       }
     } catch (error) {
       console.error("Failed to fetch rankings:", error);
-      setRankings(generateMockRankings());
+      setRankings([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const generateMockRankings = (): RankingEntry[] => [
-    {
-      id: "1",
-      rank: 1,
-      displayName: "Privacy Champion",
-      totalDonated: 15.5,
-      campaignsSupported: 8,
-      zkProofsGenerated: 23,
-      privacyScore: 98,
-      isAnonymous: true,
-      achievements: ["First Donor", "Privacy Advocate", "Milestone Helper"],
-      momentum: "rising",
-      lastActive: "2 hours ago",
-    },
-    {
-      id: "2",
-      rank: 2,
-      displayName: "Crypto Philanthropist",
-      totalDonated: 12.3,
-      campaignsSupported: 5,
-      zkProofsGenerated: 18,
-      privacyScore: 85,
-      isAnonymous: false,
-      achievements: ["Big Supporter", "Community Builder"],
-      momentum: "stable",
-      lastActive: "1 day ago",
-    },
-    {
-      id: "3",
-      rank: 3,
-      displayName: "Anonymous Supporter",
-      totalDonated: 9.8,
-      campaignsSupported: 12,
-      zkProofsGenerated: 34,
-      privacyScore: 100,
-      isAnonymous: true,
-      achievements: ["Consistency Award", "Privacy Guardian", "ZK Master"],
-      momentum: "rising",
-      lastActive: "30 minutes ago",
-    },
-  ];
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -156,198 +140,152 @@ export const ZKRankingSystem: React.FC<ZKRankingSystemProps> = ({
     return "bg-red-500";
   };
 
+  const formatAddress = (address: string) => {
+    if (!address || typeof address !== "string") {
+      return "0x...";
+    }
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return "Just now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  };
+
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-gray-300 rounded-full"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                    <div className="h-3 bg-gray-300 rounded w-1/2"></div>
-                  </div>
+      <div className="bg-gray-900/95 text-white p-6">
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gray-600 rounded-full"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-600 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-600 rounded w-1/2"></div>
                 </div>
+                <div className="h-6 bg-gray-600 rounded w-16"></div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (rankings.length === 0) {
+    return (
+      <div className="bg-gray-900/95 text-white p-6">
+        <div className="text-center py-12">
+          <Trophy className="w-16 h-16 mx-auto mb-6 opacity-50 text-gray-400" />
+          <p className="text-xl font-semibold text-gray-300 mb-3">
+            No Rankings Yet
+          </p>
+          <p className="text-gray-400">
+            {type === "campaign"
+              ? "Be the first to contribute to this campaign!"
+              : "No contributors found for the selected criteria."}
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Controls */}
-      <div className="flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex gap-2">
-          {["week", "month", "year", "all"].map((period) => (
-            <Button
-              key={period}
-              variant={selectedTimeframe === period ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedTimeframe(period as any)}
-            >
-              {period.charAt(0).toUpperCase() + period.slice(1)}
-            </Button>
-          ))}
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant={privacyMode === "full" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setPrivacyMode("full")}
-          >
-            <Lock className="w-4 h-4 mr-1" />
-            Full Privacy
-          </Button>
-          <Button
-            variant={privacyMode === "partial" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setPrivacyMode("partial")}
-          >
-            <EyeOff className="w-4 h-4 mr-1" />
-            Partial
-          </Button>
-          <Button
-            variant={privacyMode === "transparent" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setPrivacyMode("transparent")}
-          >
-            <Eye className="w-4 h-4 mr-1" />
-            Transparent
-          </Button>
-        </div>
-      </div>
-
+    <div className="bg-gray-900/95 text-white p-6 space-y-6">
       {/* Rankings */}
       <div className="space-y-4">
         {rankings.map((entry, index) => (
-          <AnimatedCard
+          <div
             key={entry.id}
-            delay={index * 0.1}
-            direction="left"
-            className="relative"
+            className={`transition-all duration-300 hover:shadow-xl rounded-lg ${
+              entry.rank <= 3
+                ? "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-2 border-yellow-400/50 shadow-lg"
+                : "bg-gray-800/60 border border-gray-600/50"
+            }`}
           >
-            <Card
-              className={`transition-all duration-300 hover:shadow-lg ${
-                entry.rank <= 3 ? "ring-2 ring-purple-200 shadow-md" : ""
-              }`}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  {/* Left Section - Rank & Info */}
-                  <div className="flex items-center space-x-4 flex-1">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-blue-500">
-                      {getRankIcon(entry.rank)}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
-                          {entry.isAnonymous && privacyMode !== "transparent"
-                            ? `Anonymous #${entry.rank}`
-                            : entry.displayName}
-                        </h3>
-                        {getMomentumIcon(entry.momentum)}
-                        {entry.isAnonymous && (
-                          <Shield className="w-4 h-4 text-green-500" />
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-3 text-sm text-gray-600 dark:text-gray-400">
-                        {privacyMode !== "full" && (
-                          <span className="flex items-center gap-1">
-                            <AnimatedCountUp
-                              end={entry.totalDonated}
-                              decimals={1}
-                              suffix=" ETH"
-                            />
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Users className="w-3 h-3" />
-                          {entry.campaignsSupported} campaigns
-                        </span>
-                        {showPrivacyMetrics && (
-                          <span className="flex items-center gap-1">
-                            <Zap className="w-3 h-3" />
-                            {entry.zkProofsGenerated} ZK proofs
-                          </span>
-                        )}
-                      </div>
-                    </div>
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                {/* Left Section - Rank & Info */}
+                <div className="flex items-center space-x-4 flex-1">
+                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold">
+                    {entry.rank <= 3 ? getRankIcon(entry.rank) : entry.rank}
                   </div>
 
-                  {/* Right Section - Badges & Metrics */}
-                  <div className="flex flex-col items-end space-y-2">
-                    <div className="flex gap-2">
-                      <Badge
-                        variant="secondary"
-                        className={`text-white ${getPrivacyBadgeColor(
-                          entry.privacyScore
-                        )}`}
-                      >
-                        Privacy {entry.privacyScore}%
-                      </Badge>
-                      <Badge variant="outline">Rank #{entry.rank}</Badge>
-                    </div>
-
-                    {/* Achievements */}
-                    <div className="flex flex-wrap gap-1 max-w-48">
-                      {entry.achievements
-                        .slice(0, 2)
-                        .map((achievement, idx) => (
-                          <Badge
-                            key={idx}
-                            variant="outline"
-                            className="text-xs"
-                          >
-                            <Star className="w-3 h-3 mr-1" />
-                            {achievement}
-                          </Badge>
-                        ))}
-                      {entry.achievements.length > 2 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{entry.achievements.length - 2}
-                        </Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-lg text-white font-mono">
+                        {formatAddress(entry.donorAddress || entry.displayName)}
+                      </h3>
+                      {entry.isAnonymous && (
+                        <Shield className="w-4 h-4 text-green-400" />
                       )}
                     </div>
 
-                    <span className="text-xs text-gray-500">
-                      Active {entry.lastActive}
-                    </span>
+                    <div className="flex flex-wrap gap-4 text-sm text-gray-300">
+                      <span className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-purple-400" />
+                        <span>
+                          {entry.isAmountRevealed
+                            ? `${entry.totalDonated?.toFixed(4)} ETH`
+                            : "Private Amount"}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-blue-400" />
+                        <span>
+                          {entry.commitmentCount || entry.zkProofsGenerated}{" "}
+                          contributions
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </AnimatedCard>
+
+                {/* Right Section - Badges & Metrics */}
+                <div className="flex flex-col items-end space-y-3">
+                  <div className="flex gap-2">
+                    <Badge className="px-3 py-1 text-xs font-medium rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                      {entry.isNameRevealed ? "Named" : "Anonymous"}
+                    </Badge>
+                    <Badge className="px-3 py-1 text-xs font-medium rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+                      #{entry.rank}
+                    </Badge>
+                  </div>
+
+                  <span className="text-xs text-gray-400">
+                    {formatTimeAgo(entry.lastActive)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         ))}
       </div>
 
       {/* Privacy Notice */}
-      <AnimatedCard direction="up" className="mt-6">
-        <Card className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Shield className="w-5 h-5 text-purple-600" />
-              <div className="text-sm">
-                <span className="font-medium text-purple-900 dark:text-purple-100">
-                  Privacy-First Rankings:
-                </span>
-                <span className="text-purple-700 dark:text-purple-300 ml-2">
-                  All rankings use zero-knowledge proofs to verify contributions
-                  while protecting donor privacy. Amounts remain encrypted, but
-                  achievements are cryptographically proven.
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </AnimatedCard>
+      <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-lg p-5">
+        <div className="flex items-start gap-4">
+          <Shield className="w-6 h-6 text-purple-400 mt-1" />
+          <div className="text-sm">
+            <span className="font-semibold text-purple-200 block mb-2">
+              Privacy-First Rankings:
+            </span>
+            <span className="text-purple-100 leading-relaxed">
+              Rankings show contribution order while protecting donor privacy.
+              Only revealed amounts are shown - private contributions are ranked
+              by commitment order.
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

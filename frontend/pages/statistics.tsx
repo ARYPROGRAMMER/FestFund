@@ -7,14 +7,19 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { useWallet } from "@/contexts/WalletContext";
-import { statsApi } from "@/lib/api";
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { Progress } from "../components/ui/progress";
+import { useWallet } from "../contexts/WalletContext";
+import { statsApi } from "../lib/api";
 import {
   AnimatedCard,
   AnimatedCountUp,
@@ -513,7 +518,7 @@ const StatisticsPage: React.FC = () => {
                         <div className="p-4 bg-blue-50 rounded-lg">
                           <div className="flex justify-between items-center mb-2">
                             <h4 className="font-semibold text-blue-800">
-                              Own Keys Mode
+                              Midnight Network Keys
                             </h4>
                             <Badge className="bg-blue-600">Secure</Badge>
                           </div>

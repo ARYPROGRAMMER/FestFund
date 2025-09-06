@@ -43,6 +43,7 @@ import {
   Shield,
   Zap,
   Users,
+  User,
   Globe,
   Target,
   TrendingUp,
@@ -215,6 +216,38 @@ export default function HomePage() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
+  // Listen for router events to refresh data when returning from other pages
+  useEffect(() => {
+    const handleRouteChange = () => {
+      // When user returns to home page, refresh data
+      if (user && isLoggedIn) {
+        console.log("🔄 Route change detected, refreshing data...");
+        loadUserSpecificData();
+      } else {
+        loadInitialData();
+      }
+    };
+
+    // Listen for router events
+    router.events.on("routeChangeComplete", handleRouteChange);
+
+    // Also listen for window focus to refresh data when user returns to tab
+    const handleWindowFocus = () => {
+      if (user && isLoggedIn) {
+        console.log("🔄 Window focus detected, refreshing data...");
+        loadUserSpecificData();
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+
+    // Cleanup
+    return () => {
+      router.events.off("routeChangeComplete", handleRouteChange);
+      window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, [user, isLoggedIn, router.events]);
+
   // Session persistence
   useEffect(() => {
     if (user) {
@@ -241,17 +274,23 @@ export default function HomePage() {
       try {
         const userData = JSON.parse(cachedUser);
         const sessionToken = localStorage.getItem("sessionToken");
-        
+
         // Only restore if we have a valid session token
         if (sessionToken) {
           setUser(userData);
           setIsLoggedIn(true);
-          
+
           // Set authentication cookies for middleware
-          document.cookie = `wallet-connected=true; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-          document.cookie = `user-role=${userData.role}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-          document.cookie = `sessionToken=${sessionToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-          
+          document.cookie = `wallet-connected=true; path=/; max-age=${
+            7 * 24 * 60 * 60
+          }; SameSite=Lax`;
+          document.cookie = `user-role=${userData.role}; path=/; max-age=${
+            7 * 24 * 60 * 60
+          }; SameSite=Lax`;
+          document.cookie = `sessionToken=${sessionToken}; path=/; max-age=${
+            7 * 24 * 60 * 60
+          }; SameSite=Lax`;
+
           // Set appropriate view based on user role
           if (userData.role === "organizer" || userData.role === "both") {
             setCurrentView("organizer");
@@ -422,9 +461,9 @@ export default function HomePage() {
       if (user.role === "organizer" || user.role === "both") {
         console.log("🔍 Loading organizer events for:", user.walletAddress);
 
-        // Load organizer's specific events
+        // Always reload organizer's specific events from the server
         const eventsRes = await axios.get(
-          `${BACKEND_URL}/api/proof/events/organizer/${user.walletAddress}`
+          `${BACKEND_URL}/api/proof/events/organizer/${user.walletAddress.toLowerCase()}`
         );
 
         if (eventsRes.data.success) {
@@ -433,39 +472,44 @@ export default function HomePage() {
             eventsRes.data.events.length
           );
 
-          // For organizer view, we want to show their events primarily
-          // but also keep all events for context if needed
           const organizerEvents = eventsRes.data.events || [];
 
-          // If we're in organizer view, prioritize organizer's events
+          // Always update the events for organizer view
           if (currentView === "organizer") {
             setEvents(organizerEvents);
           } else {
-            // For other views, merge organizer events with existing events
-            setEvents((prevEvents) => {
-              const organizerEventIds = new Set(
-                organizerEvents.map((e: any) => e.eventId)
+            // For other views, we still want to refresh the data
+            // Load all events and merge with organizer events
+            try {
+              const allEventsRes = await axios.get(
+                `${BACKEND_URL}/api/proof/events`
               );
-              const otherEvents = prevEvents.filter(
-                (e) => !organizerEventIds.has(e.eventId)
-              );
-              return [...organizerEvents, ...otherEvents];
-            });
+              if (allEventsRes.data.success) {
+                setEvents(allEventsRes.data.events || []);
+              } else {
+                setEvents(organizerEvents);
+              }
+            } catch {
+              setEvents(organizerEvents);
+            }
           }
         } else {
           // If the organizer-specific endpoint fails, filter from all events
           console.log(
-            "⚠️ Organizer endpoint failed, filtering from all events"
+            "⚠️ Organizer endpoint failed, loading all events as fallback"
           );
           await loadInitialData(); // Load all events as fallback
         }
+      } else {
+        // For donors, load all events
+        await loadInitialData();
       }
 
       if (user.role === "donor" || user.role === "both") {
         // Load donor commitments for donor dashboard
         try {
           const commitmentsRes = await axios.get(
-            `${BACKEND_URL}/api/proof/commitments/donor/${user.walletAddress}`
+            `${BACKEND_URL}/api/proof/commitments/donor/${user.walletAddress.toLowerCase()}`
           );
           // Handle donor commitments if needed
           console.log("📊 Donor commitments loaded");
@@ -547,13 +591,19 @@ export default function HomePage() {
         if (response.data.sessionToken) {
           localStorage.setItem("sessionToken", response.data.sessionToken);
           // Set session cookie for middleware
-          document.cookie = `sessionToken=${response.data.sessionToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+          document.cookie = `sessionToken=${
+            response.data.sessionToken
+          }; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
         }
         localStorage.setItem("walletAddress", account);
-        
+
         // Set authentication cookies for middleware
-        document.cookie = `wallet-connected=true; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-        document.cookie = `user-role=${response.data.user.role}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+        document.cookie = `wallet-connected=true; path=/; max-age=${
+          7 * 24 * 60 * 60
+        }; SameSite=Lax`;
+        document.cookie = `user-role=${
+          response.data.user.role
+        }; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
 
         // Set appropriate view based on user role
         if (
@@ -647,11 +697,14 @@ export default function HomePage() {
     localStorage.removeItem("authToken");
     localStorage.removeItem("sessionToken");
     localStorage.removeItem("walletAddress");
-    
+
     // Clear authentication cookies for middleware
-    document.cookie = "wallet-connected=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    document.cookie = "sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    document.cookie = "user-role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie =
+      "wallet-connected=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie =
+      "sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie =
+      "user-role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 
     // Disconnect wallet
     disconnectWallet();
@@ -719,6 +772,16 @@ export default function HomePage() {
                     {currentView === "organizer" ? "Donor" : "Organizer"}
                   </Button>
                 ) : null}
+
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/profile")}
+                  size="sm"
+                  className="border-gray-600 text-gray-300 hover:bg-blue-500 hover:text-white transition-all"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Profile
+                </Button>
 
                 <Button
                   variant="ghost"
@@ -1501,12 +1564,12 @@ export default function HomePage() {
           <OrganizerDashboard
             user={user}
             events={events} // Pass all events, let component filter them
-            onCreateEvent={() => setCurrentView("create")}
+            onCreateEvent={() => router.push("/create-campaign")}
             onEditEvent={(eventId: string) => {
               const event = events.find((e) => e.eventId === eventId);
               if (event) {
                 setSelectedEvent(event);
-                setCurrentView("create"); // Could be a separate edit view
+                router.push(`/create-campaign?edit=${eventId}`); // Redirect to edit mode
               }
             }}
           />

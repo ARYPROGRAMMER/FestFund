@@ -59,6 +59,9 @@ export default function CampaignAchievements({
   const [stats, setStats] = useState<AchievementStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"unlocked" | "pending">(
+    "unlocked"
+  );
 
   useEffect(() => {
     if (eventId) {
@@ -179,13 +182,10 @@ export default function CampaignAchievements({
     return (
       <div className={`space-y-4 ${className}`}>
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+          <div className="h-6 bg-gray-700/50 rounded mb-4"></div>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-20 bg-gray-200 dark:bg-gray-700 rounded"
-              ></div>
+              <div key={i} className="h-20 bg-gray-700/50 rounded"></div>
             ))}
           </div>
         </div>
@@ -196,10 +196,10 @@ export default function CampaignAchievements({
   if (error) {
     return (
       <div className={`text-center py-8 ${className}`}>
-        <p className="text-red-600 dark:text-red-400">Error: {error}</p>
+        <p className="text-red-400">Error: {error}</p>
         <button
           onClick={fetchAchievements}
-          className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          className="mt-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
         >
           Retry
         </button>
@@ -210,7 +210,7 @@ export default function CampaignAchievements({
   if (achievements.length === 0) {
     return (
       <div className={`text-center py-8 ${className}`}>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-gray-400">
           No achievements found for this campaign.
         </p>
       </div>
@@ -221,267 +221,258 @@ export default function CampaignAchievements({
     <div className={`space-y-6 ${className}`}>
       {/* Achievement Stats */}
       {showStats && stats && (
-        <Card className="bg-white dark:bg-slate-800 border-gray-200 dark:border-gray-700">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-              🏆 Achievement Progress
+        <div className="bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-xl">
+          <div className="p-6 border-b border-gray-700/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="flex items-center gap-2 text-xl font-bold text-white">
+                  🏆 Achievement Progress
+                </h3>
+                <p className="text-gray-400 mt-1">
+                  Track your campaign milestones and accomplishments
+                </p>
+              </div>
               <button
                 onClick={checkNewAchievements}
-                className="ml-auto px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
+                className="px-4 py-2 text-sm bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
               >
                 Check for New
               </button>
-            </CardTitle>
-            <CardDescription className="text-slate-600 dark:text-slate-400">
-              Track your campaign milestones and accomplishments
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <div className="text-3xl font-bold text-green-400 mb-1">
                   {stats.unlocked}
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Unlocked
-                </div>
+                <div className="text-sm text-gray-400">Unlocked</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                <div className="text-3xl font-bold text-blue-400 mb-1">
                   {stats.pending}
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Pending
-                </div>
+                <div className="text-sm text-gray-400">Pending</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                <div className="text-3xl font-bold text-purple-400 mb-1">
                   {stats.total}
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Total
-                </div>
+                <div className="text-sm text-gray-400">Total</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                <div className="text-3xl font-bold text-orange-400 mb-1">
                   {stats.completionRate}%
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Complete
-                </div>
+                <div className="text-sm text-gray-400">Complete</div>
               </div>
             </div>
-            <Progress
-              value={parseFloat(stats.completionRate)}
-              className="w-full"
-            />
-          </CardContent>
-        </Card>
+            <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500"
+                style={{ width: `${parseFloat(stats.completionRate)}%` }}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Achievement Lists */}
-      <Tabs defaultValue="unlocked" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-gray-100 dark:bg-gray-800">
-          <TabsTrigger
-            value="unlocked"
-            className="data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-700 dark:data-[state=active]:text-slate-100"
+      <div className="bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-xl">
+        {/* Tab Headers */}
+        <div className="flex border-b border-gray-700/50">
+          <button
+            onClick={() => setActiveTab("unlocked")}
+            className={`flex-1 px-6 py-4 text-sm font-medium transition-all duration-300 ${
+              activeTab === "unlocked"
+                ? "text-white bg-gray-800/60 border-b-2 border-purple-500"
+                : "text-gray-400 hover:text-white hover:bg-gray-800/30"
+            }`}
           >
             Unlocked ({unlockedAchievements.length})
-          </TabsTrigger>
-          <TabsTrigger
-            value="pending"
-            className="data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-700 dark:data-[state=active]:text-slate-100"
+          </button>
+          <button
+            onClick={() => setActiveTab("pending")}
+            className={`flex-1 px-6 py-4 text-sm font-medium transition-all duration-300 ${
+              activeTab === "pending"
+                ? "text-white bg-gray-800/60 border-b-2 border-purple-500"
+                : "text-gray-400 hover:text-white hover:bg-gray-800/30"
+            }`}
           >
             Pending ({pendingAchievements.length})
-          </TabsTrigger>
-        </TabsList>
+          </button>
+        </div>
 
-        <TabsContent value="unlocked" className="space-y-4">
-          {unlockedAchievements.length === 0 ? (
-            <div className="text-center py-16 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/15 dark:to-teal-900/10 rounded-xl border border-green-200 dark:border-green-800/50 shadow-sm">
-              <div className="text-6xl mb-6 animate-bounce">🏆</div>
-              <p className="text-green-800 dark:text-green-200 font-bold text-xl mb-2">
-                No achievements unlocked yet
-              </p>
-              <p className="text-green-600 dark:text-green-400 text-sm max-w-md mx-auto leading-relaxed">
-                Keep working on your campaign to unlock amazing achievements and
-                celebrate your milestones!
-              </p>
-              <div className="mt-6 flex justify-center space-x-2">
-                <span className="text-2xl">🎯</span>
-                <span className="text-2xl">✨</span>
-                <span className="text-2xl">🚀</span>
-              </div>
-            </div>
-          ) : (
-            unlockedAchievements
-              .sort(
-                (a, b) =>
-                  new Date(b.unlockedAt!).getTime() -
-                  new Date(a.unlockedAt!).getTime()
-              )
-              .map((achievement) => (
-                <Card
-                  key={achievement._id}
-                  className="group relative overflow-hidden border-green-200 dark:border-green-700/50 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/30 dark:via-emerald-900/20 dark:to-teal-900/10 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 shadow-lg shadow-green-100/50 dark:shadow-green-900/20"
-                >
-                  {/* Celebration sparkle effect */}
-                  <div className="absolute top-2 right-2 w-3 h-3 bg-yellow-400 rounded-full animate-ping opacity-75" />
+        {/* Tab Content */}
+        <div className="p-6">
+          {activeTab === "unlocked" ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {unlockedAchievements.length === 0 ? (
+                <div className="text-center py-16 bg-gradient-to-br from-green-500/20 via-emerald-500/15 to-teal-500/10 rounded-xl border border-green-500/30 backdrop-blur-sm">
+                  <div className="text-6xl mb-6 animate-bounce">🏆</div>
+                  <p className="text-green-300 font-bold text-xl mb-2">
+                    No achievements unlocked yet
+                  </p>
+                  <p className="text-green-400 text-sm max-w-md mx-auto leading-relaxed">
+                    Keep working on your campaign to unlock amazing achievements
+                    and celebrate your milestones!
+                  </p>
+                  <div className="mt-6 flex justify-center space-x-2">
+                    <span className="text-2xl">🎯</span>
+                    <span className="text-2xl">✨</span>
+                    <span className="text-2xl">🚀</span>
+                  </div>
+                </div>
+              ) : (
+                unlockedAchievements
+                  .sort(
+                    (a, b) =>
+                      new Date(b.unlockedAt!).getTime() -
+                      new Date(a.unlockedAt!).getTime()
+                  )
+                  .map((achievement) => (
+                    <div
+                      key={achievement._id}
+                      className="group relative overflow-hidden border border-green-500/30 bg-gradient-to-br from-green-500/20 via-emerald-500/15 to-teal-500/10 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 shadow-lg rounded-xl backdrop-blur-sm"
+                    >
+                      {/* Celebration sparkle effect */}
+                      <div className="absolute top-2 right-2 w-3 h-3 bg-yellow-400 rounded-full animate-ping opacity-75" />
 
-                  <CardContent className="pt-6 pb-6">
-                    <div className="flex items-start gap-6">
-                      <div className="relative">
-                        <div className="text-4xl p-3 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-800/80 dark:to-emerald-800/60 rounded-2xl shadow-lg shadow-green-200 dark:shadow-green-900/40 group-hover:scale-110 transition-transform duration-300">
-                          {achievement.icon}
-                        </div>
-                        <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-                          <span className="text-white text-xs">✓</span>
-                        </div>
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="font-bold text-green-800 dark:text-green-100 text-xl leading-tight mb-2">
-                              {achievement.title}
-                            </h3>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge
-                                variant="secondary"
-                                className="bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-2 py-1 shadow-sm"
-                              >
-                                {achievement.type.replace("_", " ")}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className="border-green-500 text-green-700 dark:text-green-300 text-xs font-medium bg-green-50 dark:bg-green-900/30"
-                              >
-                                {getPriorityLabel(achievement.priority)}
-                              </Badge>
+                      <div className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className="relative flex-shrink-0">
+                            <div className="text-2xl p-2 bg-gradient-to-br from-green-500/30 to-emerald-500/20 rounded-xl shadow-lg border border-green-500/30 group-hover:scale-110 transition-transform duration-300 backdrop-blur-sm">
+                              {achievement.icon}
+                            </div>
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                              <span className="text-white text-xs">✓</span>
                             </div>
                           </div>
-                          <div className="text-green-600 dark:text-green-400 text-3xl opacity-80 group-hover:opacity-100 transition-opacity">
-                            🌟
-                          </div>
-                        </div>
 
-                        <p className="text-green-700 dark:text-green-200 mb-4 leading-relaxed text-base">
-                          {achievement.description}
-                        </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-green-300 text-lg leading-tight mb-1 truncate">
+                                  {achievement.title}
+                                </h3>
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                  <span className="bg-green-600/60 text-green-200 text-xs font-medium px-2 py-1 rounded-full backdrop-blur-sm border border-green-500/30">
+                                    {achievement.type.replace("_", " ")}
+                                  </span>
+                                  <span className="border border-green-500/40 text-green-300 text-xs font-medium bg-green-500/20 px-2 py-1 rounded-full backdrop-blur-sm">
+                                    {getPriorityLabel(achievement.priority)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-yellow-400 text-xl opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                🌟
+                              </div>
+                            </div>
 
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-4 text-green-600 dark:text-green-400">
-                            <span className="flex items-center gap-2 bg-green-100 dark:bg-green-800/50 px-3 py-1 rounded-full">
-                              <span>🎉</span>
-                              <span className="font-medium">
-                                Unlocked{" "}
-                                {new Date(
-                                  achievement.unlockedAt!
-                                ).toLocaleDateString()}
-                              </span>
-                            </span>
-                            <span className="flex items-center gap-2 opacity-75">
-                              <span>🤖</span>
-                              <span>{achievement.generatedBy}</span>
-                            </span>
+                            <p className="text-green-200 mb-3 leading-relaxed text-sm line-clamp-2">
+                              {achievement.description}
+                            </p>
+
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2 text-green-400">
+                                <span className="flex items-center gap-1 bg-green-500/20 px-2 py-1 rounded-full backdrop-blur-sm border border-green-500/30">
+                                  <span>🎉</span>
+                                  <span className="font-medium truncate">
+                                    {new Date(
+                                      achievement.unlockedAt!
+                                    ).toLocaleDateString()}
+                                  </span>
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))
-          )}
-        </TabsContent>
-
-        <TabsContent value="pending" className="space-y-4">
-          {pendingAchievements.length === 0 ? (
-            <div className="text-center py-16 bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 dark:from-yellow-900/20 dark:via-orange-900/15 dark:to-amber-900/10 rounded-xl border border-yellow-200 dark:border-yellow-800/50 shadow-sm">
-              <div className="text-6xl mb-6 animate-pulse">🎉</div>
-              <p className="text-yellow-800 dark:text-yellow-200 font-bold text-xl mb-2">
-                All achievements unlocked!
-              </p>
-              <p className="text-yellow-600 dark:text-yellow-400 text-sm max-w-md mx-auto leading-relaxed mb-6">
-                Incredible work! You've completed all available achievements for
-                this campaign!
-              </p>
-              <div className="flex justify-center space-x-3 text-2xl animate-bounce">
-                <span>🏆</span>
-                <span>🌟</span>
-                <span>🎊</span>
-                <span>🚀</span>
-                <span>💫</span>
-              </div>
+                  ))
+              )}
             </div>
           ) : (
-            pendingAchievements
-              .sort((a, b) => b.priority - a.priority)
-              .map((achievement) => (
-                <Card
-                  key={achievement._id}
-                  className="group relative overflow-hidden border-gray-200 dark:border-gray-700/50 bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 dark:from-gray-800/40 dark:via-slate-800/30 dark:to-gray-800/20 hover:shadow-lg hover:scale-[1.01] transition-all duration-300 opacity-80 hover:opacity-95"
-                >
-                  <CardContent className="pt-6 pb-6">
-                    <div className="flex items-start gap-6">
-                      <div className="relative">
-                        <div className="text-4xl p-3 bg-gradient-to-br from-gray-100 to-slate-100 dark:from-gray-700/60 dark:to-slate-700/40 rounded-2xl shadow-md group-hover:scale-105 transition-transform duration-300 grayscale group-hover:grayscale-0">
-                          {achievement.icon}
-                        </div>
-                        <div className="absolute -top-1 -right-1 w-6 h-6 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center shadow-md">
-                          <span className="text-white text-xs">🔒</span>
-                        </div>
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="font-bold text-gray-700 dark:text-gray-300 text-xl leading-tight mb-2 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors">
-                              {achievement.title}
-                            </h3>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge
-                                variant="secondary"
-                                className="bg-gray-400 hover:bg-gray-500 text-white text-xs font-medium px-2 py-1 shadow-sm"
-                              >
-                                {achievement.type.replace("_", " ")}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className="border-gray-400 text-gray-600 dark:text-gray-400 text-xs font-medium bg-gray-50 dark:bg-gray-800/50"
-                              >
-                                {getPriorityLabel(achievement.priority)}
-                              </Badge>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {pendingAchievements.length === 0 ? (
+                <div className="text-center py-16 bg-gradient-to-br from-yellow-500/20 via-orange-500/15 to-amber-500/10 rounded-xl border border-yellow-500/30 backdrop-blur-sm">
+                  <div className="text-6xl mb-6 animate-pulse">🎉</div>
+                  <p className="text-yellow-300 font-bold text-xl mb-2">
+                    All achievements unlocked!
+                  </p>
+                  <p className="text-yellow-400 text-sm max-w-md mx-auto leading-relaxed mb-6">
+                    Incredible work! You've completed all available achievements
+                    for this campaign!
+                  </p>
+                  <div className="flex justify-center space-x-3 text-2xl animate-bounce">
+                    <span>🏆</span>
+                    <span>🌟</span>
+                    <span>🎊</span>
+                    <span>🚀</span>
+                    <span>💫</span>
+                  </div>
+                </div>
+              ) : (
+                pendingAchievements
+                  .sort((a, b) => b.priority - a.priority)
+                  .map((achievement) => (
+                    <div
+                      key={achievement._id}
+                      className="group relative overflow-hidden border border-gray-600/50 bg-gradient-to-br from-gray-800/40 via-slate-800/30 to-gray-800/20 hover:shadow-lg hover:scale-[1.01] transition-all duration-300 opacity-80 hover:opacity-95 rounded-xl backdrop-blur-sm"
+                    >
+                      <div className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className="relative flex-shrink-0">
+                            <div className="text-2xl p-2 bg-gradient-to-br from-gray-700/60 to-slate-700/40 rounded-xl shadow-md group-hover:scale-105 transition-transform duration-300 grayscale group-hover:grayscale-0 border border-gray-600/30 backdrop-blur-sm">
+                              {achievement.icon}
+                            </div>
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-gray-600 rounded-full flex items-center justify-center shadow-md">
+                              <span className="text-white text-xs">🔒</span>
                             </div>
                           </div>
-                          <div className="text-gray-400 dark:text-gray-600 text-3xl opacity-60 group-hover:opacity-80 transition-opacity">
-                            💎
-                          </div>
-                        </div>
 
-                        <p className="text-gray-600 dark:text-gray-400 mb-4 leading-relaxed text-base group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
-                          {achievement.description}
-                        </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-gray-300 text-lg leading-tight mb-1 group-hover:text-gray-200 transition-colors truncate">
+                                  {achievement.title}
+                                </h3>
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                  <span className="bg-gray-600/60 text-gray-300 text-xs font-medium px-2 py-1 rounded-full backdrop-blur-sm border border-gray-600/30">
+                                    {achievement.type.replace("_", " ")}
+                                  </span>
+                                  <span className="border border-gray-600/40 text-gray-400 text-xs font-medium bg-gray-700/30 px-2 py-1 rounded-full backdrop-blur-sm">
+                                    {getPriorityLabel(achievement.priority)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-gray-500 text-xl opacity-60 group-hover:opacity-80 transition-opacity flex-shrink-0">
+                                💎
+                              </div>
+                            </div>
 
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-4 text-gray-500 dark:text-gray-500">
-                            <span className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700/50 px-3 py-1 rounded-full">
-                              <span>⏳</span>
-                              <span className="font-medium">Locked</span>
-                            </span>
-                            <span className="flex items-center gap-2 opacity-75">
-                              <span>🤖</span>
-                              <span>{achievement.generatedBy}</span>
-                            </span>
+                            <p className="text-gray-400 mb-3 leading-relaxed text-sm group-hover:text-gray-300 transition-colors line-clamp-2">
+                              {achievement.description}
+                            </p>
+
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2 text-gray-500">
+                                <span className="flex items-center gap-1 bg-gray-700/50 px-2 py-1 rounded-full backdrop-blur-sm border border-gray-600/30">
+                                  <span>⏳</span>
+                                  <span className="font-medium">Locked</span>
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))
+                  ))
+              )}
+            </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </div>
   );
 }

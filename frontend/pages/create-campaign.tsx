@@ -13,12 +13,16 @@ import {
   Plus,
   Minus,
   Target,
-  Calendar,
   FileText,
   DollarSign,
   Settings,
   Shield,
   CheckCircle,
+  Loader2,
+  AlertCircle,
+  Info,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 const CreateCampaignPage: React.FC = () => {
@@ -52,7 +56,7 @@ const CreateCampaignPage: React.FC = () => {
     "business",
   ];
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -98,14 +102,25 @@ const CreateCampaignPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      // Validate all steps before submission
+      for (let step = 1; step <= 4; step++) {
+        if (!validateStep(step)) {
+          const errorMessage = getValidationError(step);
+          console.error(`❌ Validation failed at step ${step}:`, errorMessage);
+          alert(`Validation error: ${errorMessage}`);
+          setCurrentStep(step);
+          return;
+        }
+      }
+
       const milestones = formData.milestones
         .filter((m) => m.amount && parseFloat(m.amount) > 0)
         .map((m) => parseFloat(m.amount))
         .sort((a, b) => a - b);
 
       const campaignData = {
-        name: formData.name,
-        description: formData.description,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         targetAmount: parseFloat(formData.targetAmount),
         organizer: account,
         organizerAddress: account,
@@ -114,8 +129,8 @@ const CreateCampaignPage: React.FC = () => {
         milestones: milestones,
         metadata: {
           privacyLevel: formData.privacyLevel,
-          allowAnonymous: formData.allowAnonymous,
-          requireVerification: formData.requireVerification,
+          allowAnonymous: Boolean(formData.allowAnonymous),
+          requireVerification: Boolean(formData.requireVerification),
           tags: formData.tags
             .split(",")
             .map((tag) => tag.trim())
@@ -135,6 +150,7 @@ const CreateCampaignPage: React.FC = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify(campaignData),
       });
@@ -142,19 +158,43 @@ const CreateCampaignPage: React.FC = () => {
       console.log("📡 Response status:", response.status);
       console.log("📡 Response ok:", response.ok);
 
+      const responseData = await response.json();
+
       if (response.ok) {
-        const result = await response.json();
-        console.log("✅ Campaign created successfully:", result);
-        alert("Campaign created successfully!");
-        router.push(`/events/${result.eventId}`);
+        console.log("✅ Campaign created successfully:", responseData);
+
+        // Show success message
+        alert(
+          "🎉 Campaign created successfully! You'll be redirected to your campaign page."
+        );
+
+        // Redirect to the campaign page
+        if (responseData.eventId) {
+          router.push(`/events/${responseData.eventId}`);
+        } else {
+          router.push("/campaigns");
+        }
       } else {
-        const error = await response.json();
-        console.error("❌ Server error:", error);
-        alert(`Failed to create campaign: ${error.message || "Unknown error"}`);
+        console.error("❌ Server error:", responseData);
+        const errorMessage =
+          responseData.message ||
+          responseData.error ||
+          "Unknown error occurred";
+        alert(`❌ Failed to create campaign: ${errorMessage}`);
       }
     } catch (error) {
       console.error("💥 Error creating campaign:", error);
-      alert("Failed to create campaign. Please try again.");
+
+      let errorMessage = "Failed to create campaign. Please try again.";
+
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        errorMessage =
+          "Network error. Please check your connection and try again.";
+      } else if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+      }
+
+      alert(`❌ ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
       console.log("🏁 Campaign creation finished");
@@ -179,7 +219,7 @@ const CreateCampaignPage: React.FC = () => {
         if (!formData.targetAmount) return false;
         const targetAmount = parseFloat(formData.targetAmount);
         if (isNaN(targetAmount) || targetAmount <= 0) return false;
-        if (targetAmount > 1000) return false; // Max 1000 ETH
+        if (targetAmount > 100000) return false; // Max 100000 ETH
         if (!formData.endDate) return false;
         const endDate = new Date(formData.endDate);
         const now = new Date();
@@ -241,7 +281,8 @@ const CreateCampaignPage: React.FC = () => {
         const targetAmount = parseFloat(formData.targetAmount);
         if (isNaN(targetAmount) || targetAmount <= 0)
           return "Target amount must be a positive number";
-        if (targetAmount > 1000) return "Target amount cannot exceed 1000 ETH";
+        if (targetAmount > 100000)
+          return "Target amount cannot exceed 100000 ETH";
         if (!formData.endDate) return "End date is required";
         const endDate = new Date(formData.endDate);
         const now = new Date();
@@ -281,178 +322,218 @@ const CreateCampaignPage: React.FC = () => {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-black p-6">
-        <div className="max-w-2xl mx-auto text-center py-16">
-          <Shield className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-          <h2 className="text-2xl font-bold text-white mb-4">
-            Connect Your Wallet
-          </h2>
-          <p className="text-gray-400 mb-6">
-            You need to connect your wallet to create a campaign
-          </p>
-          <Button
-            onClick={() => router.push("/")}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-          >
-            Go Back Home
-          </Button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex items-center justify-center p-6">
+        <div className="max-w-md w-full">
+          <Card className="bg-gray-900/50 backdrop-blur-xl border border-gray-800 shadow-2xl">
+            <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-4">
+                Connect Your Wallet
+              </h2>
+              <p className="text-gray-400 mb-8 leading-relaxed">
+                You need to connect your wallet to create a campaign and start
+                fundraising
+              </p>
+              <Button
+                onClick={() => router.push("/")}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium py-3 transition-all duration-200 hover:scale-[1.02]"
+              >
+                Go Back Home
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-4">
+        <div className="text-center mb-8 sm:mb-12">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent mb-4">
             Create Campaign
           </h1>
-          <p className="text-gray-400 text-lg">
-            Launch your privacy-preserving fundraising campaign
+          <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
+            Launch your privacy-preserving fundraising campaign with
+            zero-knowledge technology
           </p>
         </div>
 
         {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between max-w-2xl mx-auto">
-            {[1, 2, 3, 4].map((step) => (
-              <div key={step} className="flex items-center">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
-                    currentStep >= step
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-700 text-gray-400"
-                  }`}
-                >
-                  {currentStep > step ? (
-                    <CheckCircle className="w-5 h-5" />
-                  ) : (
-                    step
-                  )}
-                </div>
-                {step < 4 && (
+        <div className="mb-8 sm:mb-12">
+          <div className="flex items-center justify-between max-w-2xl mx-auto px-4">
+            {[
+              { step: 1, label: "Basic Info", icon: FileText },
+              { step: 2, label: "Funding", icon: DollarSign },
+              { step: 3, label: "Milestones", icon: Target },
+              { step: 4, label: "Review", icon: Settings },
+            ].map(({ step, label, icon: Icon }, index) => (
+              <React.Fragment key={step}>
+                <div className="flex flex-col items-center">
                   <div
-                    className={`w-16 h-1 mx-2 ${
-                      currentStep > step ? "bg-purple-600" : "bg-gray-700"
+                    className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
+                      currentStep >= step
+                        ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg"
+                        : "bg-gray-800 text-gray-400 border border-gray-700"
+                    }`}
+                  >
+                    {currentStep > step ? (
+                      <CheckCircle className="w-6 h-6" />
+                    ) : (
+                      <Icon className="w-5 h-5" />
+                    )}
+                  </div>
+                  <span
+                    className={`mt-2 text-xs sm:text-sm font-medium ${
+                      currentStep >= step ? "text-white" : "text-gray-500"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </div>
+                {index < 3 && (
+                  <div
+                    className={`flex-1 h-1 mx-2 sm:mx-4 rounded-full transition-all duration-300 ${
+                      currentStep > step
+                        ? "bg-gradient-to-r from-purple-600 to-blue-600"
+                        : "bg-gray-700"
                     }`}
                   />
                 )}
-              </div>
+              </React.Fragment>
             ))}
-          </div>
-          <div className="flex justify-between mt-4 text-sm text-gray-400 max-w-2xl mx-auto px-5">
-            <span>Basic Info</span>
-            <span>Funding</span>
-            <span>Milestones</span>
-            <span>Review</span>
           </div>
         </div>
 
-        <Card className="bg-gray-900/90 backdrop-blur-sm border border-gray-700 shadow-2xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
+        <Card className="bg-gray-900/50 backdrop-blur-xl border border-gray-800 shadow-2xl">
+          <CardHeader className="pb-6">
+            <CardTitle className="flex items-center gap-3 text-white text-xl sm:text-2xl">
               {currentStep === 1 && (
                 <>
-                  <FileText className="w-5 h-5" /> Basic Information
+                  <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-white" />
+                  </div>
+                  Basic Information
                 </>
               )}
               {currentStep === 2 && (
                 <>
-                  <DollarSign className="w-5 h-5" /> Funding Details
+                  <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-4 h-4 text-white" />
+                  </div>
+                  Funding Details
                 </>
               )}
               {currentStep === 3 && (
                 <>
-                  <Target className="w-5 h-5" /> Milestones
+                  <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                    <Target className="w-4 h-4 text-white" />
+                  </div>
+                  Milestones
                 </>
               )}
               {currentStep === 4 && (
                 <>
-                  <Settings className="w-5 h-5" /> Review & Create
+                  <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                    <Settings className="w-4 h-4 text-white" />
+                  </div>
+                  Review & Create
                 </>
               )}
             </CardTitle>
             {!validateStep(currentStep) && (
-              <div className="mt-3 p-3 bg-red-900/30 border border-red-600 rounded-lg">
-                <p className="text-red-300 text-sm">
-                  {getValidationError(currentStep)}
-                </p>
+              <div className="mt-4 p-4 bg-red-900/20 border border-red-800 rounded-lg flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-red-300 font-medium">Validation Error</p>
+                  <p className="text-red-400 text-sm mt-1">
+                    {getValidationError(currentStep)}
+                  </p>
+                </div>
               </div>
             )}
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          <CardContent className="p-6 sm:p-8 space-y-8">
             {/* Step 1: Basic Information */}
             {currentStep === 1 && (
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Campaign Name *{" "}
-                    <span className="text-gray-500">
+              <div className="space-y-8">
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Campaign Name *
+                    <span className="text-gray-500 font-normal ml-2">
                       ({formData.name.length}/100)
                     </span>
                   </label>
                   <Input
-                    placeholder="Enter campaign name"
+                    placeholder="Enter a compelling campaign name"
                     value={formData.name}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleInputChange("name", e.target.value)
                     }
-                    className={`bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 ${
-                      formData.name.length > 100 ? "border-red-500" : ""
+                    className={`bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 transition-all duration-200 h-12 ${
+                      formData.name.length > 100
+                        ? "border-red-500 focus:border-red-500"
+                        : ""
                     }`}
-                    style={{ color: "#ffffff", backgroundColor: "#1f2937" }}
                     maxLength={100}
                   />
                   {formData.name.length > 100 && (
-                    <p className="text-red-400 text-sm mt-1">
+                    <div className="flex items-center gap-2 text-red-400 text-sm">
+                      <AlertCircle className="w-4 h-4" />
                       Campaign name is too long
-                    </p>
+                    </div>
                   )}
                   {formData.name.length > 0 && formData.name.length < 3 && (
-                    <p className="text-yellow-400 text-sm mt-1">
+                    <div className="flex items-center gap-2 text-amber-400 text-sm">
+                      <Info className="w-4 h-4" />
                       Campaign name must be at least 3 characters
-                    </p>
+                    </div>
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Description *{" "}
-                    <span className="text-gray-500">
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Description *
+                    <span className="text-gray-500 font-normal ml-2">
                       ({formData.description.length}/2000)
                     </span>
                   </label>
                   <textarea
-                    className={`w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-800 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 min-h-[100px] ${
-                      formData.description.length > 2000 ? "border-red-500" : ""
+                    className={`w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800/50 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 focus:ring-1 transition-all duration-200 min-h-[120px] resize-none ${
+                      formData.description.length > 2000
+                        ? "border-red-500 focus:border-red-500"
+                        : ""
                     }`}
-                    rows={4}
-                    placeholder="Describe your campaign..."
+                    rows={5}
+                    placeholder="Describe your campaign goals, purpose, and what makes it special..."
                     value={formData.description}
                     onChange={(e) =>
                       handleInputChange("description", e.target.value)
                     }
                     maxLength={2000}
-                    style={{ color: "#ffffff", backgroundColor: "#1f2937" }}
                   />
                   {formData.description.length > 2000 && (
-                    <p className="text-red-400 text-sm mt-1">
+                    <div className="flex items-center gap-2 text-red-400 text-sm">
+                      <AlertCircle className="w-4 h-4" />
                       Description is too long
-                    </p>
+                    </div>
                   )}
                   {formData.description.length > 0 &&
                     formData.description.length < 10 && (
-                      <p className="text-yellow-400 text-sm mt-1">
+                      <div className="flex items-center gap-2 text-amber-400 text-sm">
+                        <Info className="w-4 h-4" />
                         Description must be at least 10 characters
-                      </p>
+                      </div>
                     )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-300">
                     Category *
                   </label>
                   <select
@@ -460,14 +541,13 @@ const CreateCampaignPage: React.FC = () => {
                     onChange={(e) =>
                       handleInputChange("category", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:border-purple-500 focus:ring-purple-500"
-                    style={{ color: "#ffffff", backgroundColor: "#1f2937" }}
+                    className="w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800/50 text-white focus:border-purple-500 focus:ring-purple-500 focus:ring-1 transition-all duration-200 h-12"
                   >
                     {categories.map((category) => (
                       <option
                         key={category}
                         value={category}
-                        style={{ color: "#ffffff", backgroundColor: "#1f2937" }}
+                        className="bg-gray-800 text-white"
                       >
                         {category.charAt(0).toUpperCase() + category.slice(1)}
                       </option>
@@ -475,163 +555,185 @@ const CreateCampaignPage: React.FC = () => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Tags (comma-separated)
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Tags
+                    <span className="text-gray-500 font-normal ml-2">
+                      (comma-separated, optional)
+                    </span>
                   </label>
                   <Input
-                    placeholder="blockchain, privacy, fundraising"
+                    placeholder="blockchain, privacy, fundraising, innovation"
                     value={formData.tags}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleInputChange("tags", e.target.value)
                     }
-                    className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
-                    style={{ color: "#ffffff", backgroundColor: "#1f2937" }}
+                    className="bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 transition-all duration-200 h-12"
                   />
+                  <p className="text-gray-500 text-sm">
+                    Add relevant tags to help people discover your campaign
+                  </p>
                 </div>
               </div>
             )}
 
             {/* Step 2: Funding Details */}
             {currentStep === 2 && (
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Target Amount (ETH) *{" "}
-                    <span className="text-gray-500">(Max: 1000 ETH)</span>
+              <div className="space-y-8">
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Target Amount (ETH) *
+                    <span className="text-gray-500 font-normal ml-2">
+                      (Maximum: 100000 ETH)
+                    </span>
                   </label>
-                  <Input
-                    type="number"
-                    step="0.001"
-                    min="0.001"
-                    max="1000"
-                    placeholder="0.000"
-                    value={formData.targetAmount}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      handleInputChange("targetAmount", e.target.value)
-                    }
-                    className={`bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 ${
-                      formData.targetAmount &&
-                      (parseFloat(formData.targetAmount) <= 0 ||
-                        parseFloat(formData.targetAmount) > 1000)
-                        ? "border-red-500"
-                        : ""
-                    }`}
-                    style={{ color: "#ffffff", backgroundColor: "#1f2937" }}
-                  />
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      max="100000"
+                      placeholder="0.000"
+                      value={formData.targetAmount}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        handleInputChange("targetAmount", e.target.value)
+                      }
+                      className={`bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 transition-all duration-200 h-12 pr-12 ${
+                        formData.targetAmount &&
+                        (parseFloat(formData.targetAmount) <= 0 ||
+                          parseFloat(formData.targetAmount) > 100000)
+                          ? "border-red-500 focus:border-red-500"
+                          : ""
+                      }`}
+                    />
+                    <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium">
+                      ETH
+                    </span>
+                  </div>
                   {formData.targetAmount &&
-                    parseFloat(formData.targetAmount) > 1000 && (
-                      <p className="text-red-400 text-sm mt-1">
-                        Target amount cannot exceed 1000 ETH
-                      </p>
+                    parseFloat(formData.targetAmount) > 100000 && (
+                      <div className="flex items-center gap-2 text-red-400 text-sm">
+                        <AlertCircle className="w-4 h-4" />
+                        Target amount cannot exceed 100000 ETH
+                      </div>
                     )}
                   {formData.targetAmount &&
                     parseFloat(formData.targetAmount) <= 0 && (
-                      <p className="text-red-400 text-sm mt-1">
+                      <div className="flex items-center gap-2 text-red-400 text-sm">
+                        <AlertCircle className="w-4 h-4" />
                         Target amount must be greater than 0
-                      </p>
+                      </div>
                     )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    End Date *{" "}
-                    <span className="text-gray-500">
-                      (Max: 1 year from now)
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-300">
+                    End Date *
+                    <span className="text-gray-500 font-normal ml-2">
+                      (Maximum: 1 year from now)
                     </span>
                   </label>
-                  <Input
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      handleInputChange("endDate", e.target.value)
-                    }
-                    min={new Date().toISOString().split("T")[0]}
-                    max={
-                      new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-                        .toISOString()
-                        .split("T")[0]
-                    }
-                    className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
-                    style={{
-                      colorScheme: "dark",
-                      color: "#ffffff",
-                      backgroundColor: "#1f2937",
-                    }}
-                  />
+                  <div className="relative">
+                    <Input
+                      type="date"
+                      value={formData.endDate}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        handleInputChange("endDate", e.target.value)
+                      }
+                      min={new Date().toISOString().split("T")[0]}
+                      max={
+                        new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+                          .toISOString()
+                          .split("T")[0]
+                      }
+                      className="bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 transition-all duration-200 h-12"
+                      style={{ colorScheme: "dark" }}
+                    />
+                  </div>
                   {formData.endDate &&
                     new Date(formData.endDate) <= new Date() && (
-                      <p className="text-red-400 text-sm mt-1">
+                      <div className="flex items-center gap-2 text-red-400 text-sm">
+                        <AlertCircle className="w-4 h-4" />
                         End date must be in the future
-                      </p>
+                      </div>
                     )}
                   {formData.endDate &&
                     new Date(formData.endDate) >
                       new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) && (
-                      <p className="text-yellow-400 text-sm mt-1">
+                      <div className="flex items-center gap-2 text-amber-400 text-sm">
+                        <Info className="w-4 h-4" />
                         End date is more than 1 year from now
-                      </p>
+                      </div>
                     )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Privacy Level
-                  </label>
-                  <select
-                    value={formData.privacyLevel}
-                    onChange={(e) =>
-                      handleInputChange("privacyLevel", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="high">High - Maximum anonymity</option>
-                    <option value="medium">Medium - Partial privacy</option>
-                    <option value="low">Low - Minimal privacy</option>
-                  </select>
-                </div>
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-white">
+                    Privacy Settings
+                  </h3>
 
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="allowAnonymous"
-                      checked={formData.allowAnonymous}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "allowAnonymous",
-                          e.target.checked.toString()
-                        )
-                      }
-                      className="rounded"
-                    />
-                    <label
-                      htmlFor="allowAnonymous"
-                      className="text-sm text-gray-700 dark:text-gray-300"
-                    >
-                      Allow anonymous donations
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Privacy Level
                     </label>
+                    <select
+                      value={formData.privacyLevel}
+                      onChange={(e) =>
+                        handleInputChange("privacyLevel", e.target.value)
+                      }
+                      className="w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800/50 text-white focus:border-purple-500 focus:ring-purple-500 focus:ring-1 transition-all duration-200 h-12"
+                    >
+                      <option value="high" className="bg-gray-800 text-white">
+                        High - Maximum anonymity with ZK proofs
+                      </option>
+                      <option value="medium" className="bg-gray-800 text-white">
+                        Medium - Partial privacy protection
+                      </option>
+                      <option value="low" className="bg-gray-800 text-white">
+                        Low - Basic privacy features
+                      </option>
+                    </select>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="requireVerification"
-                      checked={formData.requireVerification}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "requireVerification",
-                          e.target.checked.toString()
-                        )
-                      }
-                      className="rounded"
-                    />
-                    <label
-                      htmlFor="requireVerification"
-                      className="text-sm text-gray-700 dark:text-gray-300"
-                    >
-                      Require donor verification
-                    </label>
+                  <div className="space-y-4 p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="allowAnonymous"
+                        checked={formData.allowAnonymous}
+                        onChange={(e) =>
+                          handleInputChange("allowAnonymous", e.target.checked)
+                        }
+                        className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label
+                        htmlFor="allowAnonymous"
+                        className="text-sm text-gray-300 cursor-pointer"
+                      >
+                        Allow anonymous donations
+                      </label>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="requireVerification"
+                        checked={formData.requireVerification}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "requireVerification",
+                            e.target.checked
+                          )
+                        }
+                        className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label
+                        htmlFor="requireVerification"
+                        className="text-sm text-gray-300 cursor-pointer"
+                      >
+                        Require donor verification for large donations
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -639,40 +741,53 @@ const CreateCampaignPage: React.FC = () => {
 
             {/* Step 3: Milestones */}
             {currentStep === 3 && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Funding Milestones
-                  </h3>
-                  <Button onClick={addMilestone} size="sm">
-                    <Plus className="w-4 h-4 mr-1" />
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">
+                      Funding Milestones
+                    </h3>
+                    <p className="text-gray-400 text-sm mt-1">
+                      Set milestones to track progress and unlock achievements
+                    </p>
+                  </div>
+                  <Button
+                    onClick={addMilestone}
+                    size="sm"
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
                     Add Milestone
                   </Button>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {formData.milestones.map((milestone, index) => (
                     <div
                       key={index}
-                      className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg"
+                      className="flex items-center space-x-4 p-4 bg-gray-800/30 border border-gray-700 rounded-lg hover:border-gray-600 transition-all duration-200"
                     >
-                      <div className="flex-1">
-                        <Input
-                          type="number"
-                          step="0.001"
-                          placeholder="Amount (ETH)"
-                          value={milestone.amount}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                            updateMilestone(index, "amount", e.target.value)
-                          }
-                          className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
-                          style={{
-                            color: "#ffffff",
-                            backgroundColor: "#1f2937",
-                          }}
-                        />
+                      <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        {index + 1}
                       </div>
-                      <div className="flex-2">
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            step="0.001"
+                            placeholder="Amount (ETH)"
+                            value={milestone.amount}
+                            onChange={(
+                              e: React.ChangeEvent<HTMLInputElement>
+                            ) =>
+                              updateMilestone(index, "amount", e.target.value)
+                            }
+                            className="bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 transition-all duration-200 h-10 pr-12"
+                          />
+                          <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                            ETH
+                          </span>
+                        </div>
                         <Input
                           placeholder="Milestone description"
                           value={milestone.description}
@@ -683,11 +798,7 @@ const CreateCampaignPage: React.FC = () => {
                               e.target.value
                             )
                           }
-                          className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
-                          style={{
-                            color: "#ffffff",
-                            backgroundColor: "#1f2937",
-                          }}
+                          className="bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500 transition-all duration-200 h-10"
                         />
                       </div>
                       {formData.milestones.length > 1 && (
@@ -695,6 +806,7 @@ const CreateCampaignPage: React.FC = () => {
                           onClick={() => removeMilestone(index)}
                           size="sm"
                           variant="outline"
+                          className="border-red-600 text-red-400 hover:bg-red-900/20 hover:text-red-300 flex-shrink-0"
                         >
                           <Minus className="w-4 h-4" />
                         </Button>
@@ -703,98 +815,171 @@ const CreateCampaignPage: React.FC = () => {
                   ))}
                 </div>
 
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  <p>
-                    💡 Milestones help donors track progress and unlock
-                    achievements
-                  </p>
+                <div className="p-4 bg-blue-900/20 border border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-medium text-blue-100 mb-1">
+                        Pro Tip
+                      </h4>
+                      <p className="text-blue-300 text-sm">
+                        Milestones help donors track progress and unlock
+                        achievements. Consider breaking your funding goal into
+                        meaningful stages that show clear value delivery.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Step 4: Review */}
             {currentStep === 4 && (
-              <div className="space-y-6">
-                <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <div className="space-y-8">
+                <div className="bg-gray-800/30 border border-gray-700 rounded-xl p-6">
+                  <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                      <CheckCircle className="w-4 h-4 text-white" />
+                    </div>
                     Campaign Summary
                   </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        Name:
-                      </span>
-                      <p className="text-gray-900 dark:text-white">
-                        {formData.name}
-                      </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-sm font-medium text-gray-400 uppercase tracking-wide">
+                          Campaign Name
+                        </span>
+                        <p className="text-white font-medium mt-1">
+                          {formData.name}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-400 uppercase tracking-wide">
+                          Category
+                        </span>
+                        <p className="text-white font-medium mt-1 capitalize">
+                          {formData.category}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-400 uppercase tracking-wide">
+                          Target Amount
+                        </span>
+                        <p className="text-white font-medium mt-1 text-lg">
+                          {formData.targetAmount} ETH
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        Category:
-                      </span>
-                      <p className="text-gray-900 dark:text-white">
-                        {formData.category}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        Target:
-                      </span>
-                      <p className="text-gray-900 dark:text-white">
-                        {formData.targetAmount} ETH
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        End Date:
-                      </span>
-                      <p className="text-gray-900 dark:text-white">
-                        {formData.endDate}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        Privacy Level:
-                      </span>
-                      <p className="text-gray-900 dark:text-white">
-                        {formData.privacyLevel}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        Milestones:
-                      </span>
-                      <p className="text-gray-900 dark:text-white">
-                        {formData.milestones.filter((m) => m.amount).length}{" "}
-                        configured
-                      </p>
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-sm font-medium text-gray-400 uppercase tracking-wide">
+                          End Date
+                        </span>
+                        <p className="text-white font-medium mt-1">
+                          {new Date(formData.endDate).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            }
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-400 uppercase tracking-wide">
+                          Privacy Level
+                        </span>
+                        <p className="text-white font-medium mt-1 capitalize">
+                          {formData.privacyLevel}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-400 uppercase tracking-wide">
+                          Milestones
+                        </span>
+                        <p className="text-white font-medium mt-1">
+                          {
+                            formData.milestones.filter(
+                              (m) => m.amount && m.description
+                            ).length
+                          }{" "}
+                          configured
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-4">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Description:
+                  <div className="mt-6 pt-6 border-t border-gray-700">
+                    <span className="text-sm font-medium text-gray-400 uppercase tracking-wide">
+                      Description
                     </span>
-                    <p className="text-gray-900 dark:text-white mt-1">
+                    <p className="text-gray-300 mt-2 leading-relaxed">
                       {formData.description}
                     </p>
                   </div>
+
+                  {formData.tags && (
+                    <div className="mt-4">
+                      <span className="text-sm font-medium text-gray-400 uppercase tracking-wide">
+                        Tags
+                      </span>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {formData.tags.split(",").map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-purple-900/30 border border-purple-700 rounded-full text-purple-300 text-sm"
+                          >
+                            {tag.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                  <div className="flex items-start space-x-3">
-                    <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div className="bg-gradient-to-r from-green-900/20 to-emerald-900/20 border border-green-700 rounded-xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Shield className="w-6 h-6 text-white" />
+                    </div>
                     <div>
-                      <h4 className="font-medium text-blue-900 dark:text-blue-100">
-                        Ready to Launch
+                      <h4 className="text-lg font-semibold text-green-100 mb-2">
+                        Ready to Launch with Privacy Protection
                       </h4>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                        Your campaign will be created with zero-knowledge
-                        privacy features enabled. Donors will be able to
-                        contribute anonymously while progress remains
-                        transparent.
+                      <p className="text-green-300 leading-relaxed">
+                        Your campaign will be created with cutting-edge
+                        zero-knowledge privacy features. Donors can contribute
+                        anonymously while maintaining complete transparency in
+                        funding progress and milestone achievements.
                       </p>
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span className="text-green-200">
+                            Anonymous donations enabled
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span className="text-green-200">
+                            Milestone tracking active
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span className="text-green-200">
+                            Privacy level: {formData.privacyLevel}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span className="text-green-200">
+                            Achievement system ready
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -802,13 +987,14 @@ const CreateCampaignPage: React.FC = () => {
             )}
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between pt-6 border-t border-gray-700">
+            <div className="flex flex-col sm:flex-row justify-between gap-4 pt-8 border-t border-gray-700">
               <Button
                 variant="outline"
                 onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
                 disabled={currentStep === 1}
-                className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-50"
+                className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 h-12 px-6 order-2 sm:order-1"
               >
+                <ChevronLeft className="w-4 h-4 mr-2" />
                 Previous
               </Button>
 
@@ -816,23 +1002,27 @@ const CreateCampaignPage: React.FC = () => {
                 <Button
                   onClick={() => setCurrentStep(currentStep + 1)}
                   disabled={!validateStep(currentStep)}
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white disabled:opacity-50"
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] h-12 px-6 order-1 sm:order-2"
                 >
                   Next
+                  <ChevronRight className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
                 <Button
                   onClick={handleSubmit}
                   disabled={isSubmitting || !validateStep(currentStep)}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white disabled:opacity-50"
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] h-12 px-8 order-1 sm:order-2"
                 >
                   {isSubmitting ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Creating...
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating Campaign...
                     </>
                   ) : (
-                    "Create Campaign"
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Create Campaign
+                    </>
                   )}
                 </Button>
               )}
