@@ -117,6 +117,10 @@ cd frontend && npm install && npm run dev
 
 ![Main Dashboard](screenshots/image.png)
 
+### DB View
+
+![Database View](screenshots/db.png)
+
 ### Campaign Management
 
 ![Campaign Creation](screenshots/image2.png)
