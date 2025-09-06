@@ -1,0 +1,41 @@
+{
+  "name": "festfund-backend",
+  "version": "1.0.0",
+  "description": "FestFund backend aggregator and API",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.2.1",
+    "@midnight-ntwrk/compact-runtime": "^0.8.1",
+    "@midnight-ntwrk/midnight-js-contracts": "^2.0.2",
+    "@midnight-ntwrk/wallet": "^5.0.0",
+    "bcryptjs": "^3.0.2",
+    "circomlib": "^2.0.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.15.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.0",
+    "helmet": "^7.1.0",
+    "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.0",
+    "snarkjs": "^0.7.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "festfund",
+    "zk",
+    "midnight",
+    "fundraising"
+  ],
+  "author": "FestFund Team",
+  "license": "MIT"
+}

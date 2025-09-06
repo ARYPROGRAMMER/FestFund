@@ -1,0 +1,96 @@
+// FestFund Privacy-Preserving Milestone Aggregation Circuit
+// Implements zero-knowledge proofs for top-k donation verification
+
+circuit topk_milestones {
+    // Public inputs - visible to verifiers
+    field public total_donations;    // Total number of donations for this event  
+    field public milestone_target;   // Target amount for current milestone
+    field public current_progress;   // Current progress towards milestone
+    field public event_id;          // Event identifier
+
+    // Private inputs - known only to the prover
+    field private donor_amounts[10]; // Individual donation amounts (max 10 for top-k)
+    field private donor_secrets[10]; // Donor secret values for privacy
+    field private nullifiers[10];    // Nullifiers to prevent double-counting
+
+    // Witness computation
+    witness {
+        // Verify all donations are positive
+        for i in 0..10 {
+            assert donor_amounts[i] >= 0;
+        }
+
+        // Calculate total from private donations
+        let computed_total = 0;
+        for i in 0..10 {
+            computed_total = computed_total + donor_amounts[i];
+        }
+
+        // Ensure computed total matches public total
+        assert computed_total == total_donations;
+
+        // Check milestone progress
+        assert current_progress <= milestone_target;
+        assert current_progress >= 0;
+
+        // Generate commitment for each donation
+        for i in 0..10 {
+            if donor_amounts[i] > 0 {
+                let commitment = poseidon([
+                    donor_amounts[i],
+                    donor_secrets[i], 
+                    nullifiers[i],
+                    event_id
+                ]);
+                
+                // Verify commitment is valid (non-zero)
+                assert commitment != 0;
+            }
+        }
+
+        // Calculate top-k donations (simplified - top 5)
+        let sorted_amounts = sort_desc(donor_amounts);
+        let top_k_sum = 0;
+        for i in 0..5 {
+            top_k_sum = top_k_sum + sorted_amounts[i];
+        }
+
+        // Ensure top-k sum contributes meaningfully to milestone
+        assert top_k_sum >= (milestone_target / 10); // At least 10% contribution
+    }
+
+    // Public function to verify milestone achievement
+    public fn verify_milestone() -> field {
+        if current_progress >= milestone_target {
+            return 1; // Milestone achieved
+        } else {
+            return 0; // Milestone not achieved
+        }
+    }
+
+    // Public function to get anonymized leaderboard position
+    public fn get_leaderboard_position(field donation_rank) -> field {
+        // Return anonymized rank (1-5 for top contributors)
+        if donation_rank <= 5 && donation_rank > 0 {
+            return donation_rank;
+        } else {
+            return 0; // Not in top 5
+        }
+    }
+}
+
+// Helper function for sorting (simplified implementation)
+fn sort_desc(field amounts[10]) -> field[10] {
+    // Simple bubble sort implementation for demonstration
+    let sorted = amounts;
+    for i in 0..9 {
+        for j in 0..(9-i) {
+            if sorted[j] < sorted[j+1] {
+                let temp = sorted[j];
+                sorted[j] = sorted[j+1];
+                sorted[j+1] = temp;
+            }
+        }
+    }
+    return sorted;
+}

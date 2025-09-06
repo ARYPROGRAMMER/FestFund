@@ -1,0 +1,99 @@
+# Dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs
+build/
+dist/
+.next/
+out/
+
+# Cache
+.cache/
+.parcel-cache/
+.nyc_output/
+coverage/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Logs
+logs
+*.log
+
+# Hardhat artifacts
+artifacts/
+cache/
+typechain-types/
+
+# ZK Circuit artifacts
+zk/*.wasm
+zk/*.r1cs
+zk/*.zkey
+zk/*.json
+zk/circuit.*
+zk/proving_key.*
+zk/verification_key.*
+zk/topk_milestones_artifacts.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Contract deployment info
+frontend/contracts.json
+
+# Test artifacts
+.coverage_artifacts/
+.coverage_cache/
+.coverage_contracts/
+
+# Local development
+.vercel
+.netlify
+
+# MongoDB
+*.mongodb
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
