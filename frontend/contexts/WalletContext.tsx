@@ -48,7 +48,7 @@ const MOCK_WALLET = {
   chainId: DEFAULT_CHAIN_ID,
 };
 
-// Mock signer for testing (implements minimal signer interface)
+// Mock signer for testing (implements complete signer interface including payments)
 class MockSigner {
   private address: string;
 
@@ -71,6 +71,54 @@ class MockSigner {
     return fakeSignature;
   }
 
+  // Mock transaction implementation for testing payments
+  async sendTransaction(transactionRequest: any): Promise<any> {
+    console.log("MockSigner: Sending transaction:", transactionRequest);
+    
+    // Simulate transaction processing delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Generate a fake but realistic transaction hash
+    const txData = `${this.address}${transactionRequest.to}${transactionRequest.value}${Date.now()}`;
+    const txHash = `0x${this.hashCode(txData).toString(16).padStart(64, '0')}`;
+    
+    const mockTransaction = {
+      hash: txHash,
+      to: transactionRequest.to,
+      value: transactionRequest.value,
+      from: this.address,
+      gasLimit: transactionRequest.gasLimit || 21000,
+      gasPrice: "20000000000", // 20 Gwei
+      nonce: Math.floor(Math.random() * 1000),
+      chainId: 1,
+      
+      // Mock wait function for transaction confirmation
+      wait: async (confirmations = 1) => {
+        console.log(`MockSigner: Waiting for ${confirmations} confirmations...`);
+        // Simulate confirmation delay
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        const receipt = {
+          transactionHash: txHash,
+          blockNumber: Math.floor(Math.random() * 1000000) + 18500000,
+          blockHash: `0x${Math.random().toString(16).substring(2).padStart(64, '0')}`,
+          gasUsed: transactionRequest.gasLimit || 21000,
+          status: 1, // Success
+          confirmations: confirmations,
+          from: this.address,
+          to: transactionRequest.to,
+          logs: [],
+        };
+        
+        console.log("MockSigner: Transaction confirmed:", receipt);
+        return receipt;
+      }
+    };
+    
+    console.log("MockSigner: Transaction created:", mockTransaction.hash);
+    return mockTransaction;
+  }
+
   private hashCode(str: string): number {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -78,7 +126,7 @@ class MockSigner {
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32bit integer
     }
-    return hash;
+    return Math.abs(hash);
   }
 }
 

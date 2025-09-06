@@ -31,24 +31,24 @@ pids
 *.seed
 *.pid.lock
 
-# Logs
-logs
-*.log
+# # Logs
+# logs
+# *.log
 
-# Hardhat artifacts
-artifacts/
-cache/
-typechain-types/
+# # Hardhat artifacts
+# artifacts/
+# cache/
+# typechain-types/
 
-# ZK Circuit artifacts
-zk/*.wasm
-zk/*.r1cs
-zk/*.zkey
-zk/*.json
-zk/circuit.*
-zk/proving_key.*
-zk/verification_key.*
-zk/topk_milestones_artifacts.json
+# # ZK Circuit artifacts
+# zk/*.wasm
+# zk/*.r1cs
+# zk/*.zkey
+# zk/*.json
+# zk/circuit.*
+# zk/proving_key.*
+# zk/verification_key.*
+# zk/topk_milestones_artifacts.json
 
 # IDE
 .vscode/
@@ -66,13 +66,13 @@ zk/topk_milestones_artifacts.json
 ehthumbs.db
 Thumbs.db
 
-# Contract deployment info
-frontend/contracts.json
+# # Contract deployment info
+# frontend/contracts.json
 
-# Test artifacts
-.coverage_artifacts/
-.coverage_cache/
-.coverage_contracts/
+# # Test artifacts
+# .coverage_artifacts/
+# .coverage_cache/
+# .coverage_contracts/
 
 # Local development
 .vercel
