@@ -240,13 +240,27 @@ export default function HomePage() {
     if (cachedUser) {
       try {
         const userData = JSON.parse(cachedUser);
-        setUser(userData);
-        setIsLoggedIn(true);
-        // Set appropriate view based on user role
-        if (userData.role === "organizer" || userData.role === "both") {
-          setCurrentView("organizer");
+        const sessionToken = localStorage.getItem("sessionToken");
+        
+        // Only restore if we have a valid session token
+        if (sessionToken) {
+          setUser(userData);
+          setIsLoggedIn(true);
+          
+          // Set authentication cookies for middleware
+          document.cookie = `wallet-connected=true; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+          document.cookie = `user-role=${userData.role}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+          document.cookie = `sessionToken=${sessionToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+          
+          // Set appropriate view based on user role
+          if (userData.role === "organizer" || userData.role === "both") {
+            setCurrentView("organizer");
+          } else {
+            setCurrentView("donor");
+          }
         } else {
-          setCurrentView("donor");
+          // Clear cached user data if no session token
+          localStorage.removeItem("festfund_user");
         }
       } catch (error) {
         console.error("Failed to restore user data:", error);
@@ -272,6 +286,17 @@ export default function HomePage() {
     loadInitialData();
   }, []);
 
+  // Redirect authenticated users away from public landing page
+  useEffect(() => {
+    if (isLoggedIn && user && currentView === "public") {
+      if (user.role === "organizer" || user.role === "both") {
+        setCurrentView("organizer");
+      } else {
+        setCurrentView("donor");
+      }
+    }
+  }, [isLoggedIn, user, currentView]);
+
   useEffect(() => {
     if (user) {
       loadUserSpecificData();
@@ -284,7 +309,10 @@ export default function HomePage() {
       // Load organizer's specific events
       loadUserSpecificData();
     } else if (currentView === "donor" && user) {
-      // Load all events for donor view
+      // Load all events for donor view, plus user-specific data
+      Promise.all([loadInitialData(), loadUserSpecificData()]);
+    } else if (currentView === "public") {
+      // Load all events for public view
       loadInitialData();
     }
   }, [currentView, user]);
@@ -389,8 +417,12 @@ export default function HomePage() {
     if (!user) return;
 
     try {
+      setLoading(true);
+
       if (user.role === "organizer" || user.role === "both") {
         console.log("🔍 Loading organizer events for:", user.walletAddress);
+
+        // Load organizer's specific events
         const eventsRes = await axios.get(
           `${BACKEND_URL}/api/proof/events/organizer/${user.walletAddress}`
         );
@@ -400,19 +432,53 @@ export default function HomePage() {
             "✅ Organizer events loaded:",
             eventsRes.data.events.length
           );
-          // Update events state with organizer's events for "Your Campaigns" view
-          setEvents(eventsRes.data.events || []);
+
+          // For organizer view, we want to show their events primarily
+          // but also keep all events for context if needed
+          const organizerEvents = eventsRes.data.events || [];
+
+          // If we're in organizer view, prioritize organizer's events
+          if (currentView === "organizer") {
+            setEvents(organizerEvents);
+          } else {
+            // For other views, merge organizer events with existing events
+            setEvents((prevEvents) => {
+              const organizerEventIds = new Set(
+                organizerEvents.map((e: any) => e.eventId)
+              );
+              const otherEvents = prevEvents.filter(
+                (e) => !organizerEventIds.has(e.eventId)
+              );
+              return [...organizerEvents, ...otherEvents];
+            });
+          }
+        } else {
+          // If the organizer-specific endpoint fails, filter from all events
+          console.log(
+            "⚠️ Organizer endpoint failed, filtering from all events"
+          );
+          await loadInitialData(); // Load all events as fallback
         }
       }
 
       if (user.role === "donor" || user.role === "both") {
-        const commitmentsRes = await axios.get(
-          `${BACKEND_URL}/api/proof/commitments/donor/${user.walletAddress}`
-        );
-        // Handle donor commitments
+        // Load donor commitments for donor dashboard
+        try {
+          const commitmentsRes = await axios.get(
+            `${BACKEND_URL}/api/proof/commitments/donor/${user.walletAddress}`
+          );
+          // Handle donor commitments if needed
+          console.log("📊 Donor commitments loaded");
+        } catch (error) {
+          console.error("Failed to load donor commitments:", error);
+        }
       }
     } catch (error) {
       console.error("Failed to load user data:", error);
+      // Fallback to loading all events
+      await loadInitialData();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -480,8 +546,14 @@ export default function HomePage() {
         }
         if (response.data.sessionToken) {
           localStorage.setItem("sessionToken", response.data.sessionToken);
+          // Set session cookie for middleware
+          document.cookie = `sessionToken=${response.data.sessionToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
         }
         localStorage.setItem("walletAddress", account);
+        
+        // Set authentication cookies for middleware
+        document.cookie = `wallet-connected=true; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+        document.cookie = `user-role=${response.data.user.role}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
 
         // Set appropriate view based on user role
         if (
@@ -575,6 +647,11 @@ export default function HomePage() {
     localStorage.removeItem("authToken");
     localStorage.removeItem("sessionToken");
     localStorage.removeItem("walletAddress");
+    
+    // Clear authentication cookies for middleware
+    document.cookie = "wallet-connected=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "sessionToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "user-role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 
     // Disconnect wallet
     disconnectWallet();
@@ -616,17 +693,6 @@ export default function HomePage() {
 
           {/* Enhanced Navigation */}
           <div className="flex items-center space-x-4">
-            {currentView !== "public" && (
-              <Button
-                variant="ghost"
-                onClick={() => setCurrentView("public")}
-                className="text-gray-300 hover:text-white hover:bg-gray-800/50 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Button>
-            )}
-
             {isLoggedIn && user ? (
               <div className="flex items-center space-x-4">
                 <div className="text-right">
@@ -1434,7 +1500,7 @@ export default function HomePage() {
         return (
           <OrganizerDashboard
             user={user}
-            events={events.filter((e) => e.organizerAddress === account)}
+            events={events} // Pass all events, let component filter them
             onCreateEvent={() => setCurrentView("create")}
             onEditEvent={(eventId: string) => {
               const event = events.find((e) => e.eventId === eventId);
