@@ -4,8 +4,10 @@
   "description": "FestFund backend aggregator and API",
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon server.js",
+    "dev": "NODE_ENV=development nodemon server.js",
     "start": "node server.js",
+    "start:prod": "NODE_ENV=production node server.js",
+    "build": "echo 'No build step required for Node.js backend'",
     "test": "jest"
   },
   "dependencies": {

@@ -5,7 +5,13 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 
-// Load environment variables from root .env file
+// Load environment variables - prioritize local .env files
+const envFile = process.env.NODE_ENV === 'production' 
+  ? path.resolve(__dirname, '.env.production')
+  : path.resolve(__dirname, '.env.development');
+
+// Try local env file first, then fallback to root .env
+require("dotenv").config({ path: envFile });
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
 const app = express();

@@ -13,6 +13,15 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Production environment files (contain secrets)
+.env.production
+backend/.env.production
+frontend/.env.production
+
+# Development environment files (may contain local configs)
+backend/.env.development
+frontend/.env.development
+
 # Build outputs
 build/
 dist/
