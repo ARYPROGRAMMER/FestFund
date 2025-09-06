@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
+import { motion, useAnimation, useInView } from "framer-motion";
 import { useWallet } from "../contexts/WalletContext";
 import { getZKConfig, getZKModeInfo } from "../lib/zkConfig";
 import { PrivateCommitmentForm } from "../components/PrivateCommitmentForm";
@@ -53,12 +52,43 @@ import {
   Sparkles,
   Lock,
   Eye,
+  DollarSign,
 } from "lucide-react";
 
-// Register GSAP plugins
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
+// Animation controls for Framer Motion
+const AnimatedSection: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = ({ children, className = "" }) => {
+  const controls = useAnimation();
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.1 });
+
+  useEffect(() => {
+    if (inView) {
+      controls.start("visible");
+    }
+  }, [controls, inView]);
+
+  return (
+    <motion.div
+      ref={ref}
+      animate={controls}
+      initial="hidden"
+      variants={{
+        hidden: { opacity: 0, y: 50 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          transition: { duration: 0.8, ease: "easeOut" },
+        },
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
@@ -166,6 +196,18 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Platform metrics state
+  const [platformMetrics, setPlatformMetrics] = useState({
+    totalRaised: 0,
+    activeCampaigns: 0,
+    totalDonors: 0,
+    zkProofsGenerated: 0,
+    totalCommitments: 0,
+    avgDonation: 0,
+    isLoading: true,
+    lastUpdated: null as Date | null,
+  });
+
   // UI state
   const [currentView, setCurrentView] = useState<
     "public" | "auth" | "donor" | "organizer" | "create" | "contribute"
@@ -263,94 +305,81 @@ export default function HomePage() {
     }
   }, [currentView, user]);
 
-  // GSAP animations for enhanced landing page
+  // Auto-refresh metrics for public view every 10 seconds
   useEffect(() => {
     if (currentView === "public") {
-      // Hero animations
-      if (heroRef.current) {
-        const timeline = gsap.timeline();
+      const interval = setInterval(() => {
+        console.log("🔄 Auto-refreshing platform metrics...");
+        loadInitialData();
+      }, 10000); // 10 seconds for public metrics
 
-        timeline
-          .from(".hero-title", {
-            y: 100,
-            opacity: 0,
-            duration: 1,
-            ease: "power3.out",
-          })
-          .from(
-            ".hero-subtitle",
-            {
-              y: 50,
-              opacity: 0,
-              duration: 0.8,
-              ease: "power3.out",
-            },
-            "-=0.5"
-          )
-          .from(
-            ".hero-buttons",
-            {
-              y: 30,
-              opacity: 0,
-              duration: 0.6,
-              ease: "power3.out",
-            },
-            "-=0.3"
-          )
-          .from(
-            ".hero-stats",
-            {
-              scale: 0.8,
-              opacity: 0,
-              duration: 0.8,
-              ease: "back.out(1.7)",
-            },
-            "-=0.2"
-          );
-      }
-
-      // Floating animation for hero background
-      gsap.to(".floating-shape", {
-        y: "+=20",
-        rotation: "+=5",
-        duration: 3,
-        repeat: -1,
-        yoyo: true,
-        ease: "sine.inOut",
-        stagger: 0.2,
-      });
-
-      // Stats counter animation on scroll
-      if (statsRef.current) {
-        ScrollTrigger.create({
-          trigger: statsRef.current,
-          start: "top 80%",
-          onEnter: () => {
-            gsap.from(".stat-card", {
-              scale: 0.8,
-              opacity: 0,
-              duration: 0.6,
-              stagger: 0.1,
-              ease: "back.out(1.7)",
-            });
-          },
-        });
-      }
+      return () => clearInterval(interval);
     }
+  }, [currentView]);
+
+  // Animation trigger for public view
+  useEffect(() => {
+    // Animations are now handled by Framer Motion components
+    // No additional setup needed here
   }, [currentView]);
 
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [eventsRes] = await Promise.all([
+      setPlatformMetrics((prev) => ({ ...prev, isLoading: true }));
+
+      const [eventsRes, metricsRes] = await Promise.all([
         axios.get(`${BACKEND_URL}/api/proof/events`),
+        axios
+          .get(`${BACKEND_URL}/api/proof/metrics`)
+          .catch(() => ({ data: { success: false } })),
       ]);
 
-      setEvents(eventsRes.data.events || []);
+      const eventsList = eventsRes.data.events || [];
+      setEvents(eventsList);
+
+      // Calculate metrics from events data if API endpoint doesn't exist
+      let metrics = {
+        totalRaised: 0,
+        activeCampaigns: 0,
+        totalDonors: 0,
+        zkProofsGenerated: 0,
+        totalCommitments: 0,
+        avgDonation: 0,
+        isLoading: false,
+      };
+
+      if (metricsRes.data.success) {
+        // Use API metrics if available
+        metrics = { ...metrics, ...metricsRes.data.metrics };
+      } else {
+        // Calculate from events data
+        const activeEvents = eventsList.filter((e: Event) => e.isActive);
+        metrics.totalRaised = eventsList.reduce(
+          (sum: number, event: Event) => sum + (event.currentAmount || 0),
+          0
+        );
+        metrics.activeCampaigns = activeEvents.length;
+        metrics.totalDonors = eventsList.reduce(
+          (sum: number, event: Event) => sum + (event.uniqueDonors || 0),
+          0
+        );
+        metrics.zkProofsGenerated = eventsList.reduce(
+          (sum: number, event: Event) => sum + (event.totalCommitments || 0),
+          0
+        );
+        metrics.totalCommitments = metrics.zkProofsGenerated;
+        metrics.avgDonation =
+          metrics.totalDonors > 0
+            ? metrics.totalRaised / metrics.totalDonors
+            : 0;
+      }
+
+      setPlatformMetrics({ ...metrics, lastUpdated: new Date() });
     } catch (error) {
       console.error("Failed to load initial data:", error);
-      // Don't show error toast for campaigns - fail silently
       setEvents([]);
+      setPlatformMetrics((prev) => ({ ...prev, isLoading: false }));
     } finally {
       setLoading(false);
     }
@@ -567,7 +596,7 @@ export default function HomePage() {
   };
 
   const renderHeader = () => (
-    <div className="bg-black/95 backdrop-blur-sm border-b border-gray-800/50 sticky top-0 z-50">
+    <div className="bg-black/95 backdrop-blur-sm border-b border-gray-700/70 sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Enhanced Logo */}
@@ -576,8 +605,10 @@ export default function HomePage() {
               <span className="text-white font-bold text-lg">F</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">FestFund</h1>
-              <p className="text-xs text-gray-400">
+              <h1 className="text-xl font-bold text-white drop-shadow-sm">
+                FestFund
+              </h1>
+              <p className="text-xs text-gray-300 font-medium">
                 Zero-Knowledge Fundraising
               </p>
             </div>
@@ -656,136 +687,449 @@ export default function HomePage() {
     switch (currentView) {
       case "public":
         return (
-          <div className="min-h-screen bg-black relative overflow-hidden">
-            <FloatingElements />
+          <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 relative overflow-hidden">
+            {/* Enhanced Background with Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-transparent to-purple-900/10"></div>
 
-            {/* Floating Background Shapes */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="floating-shape absolute top-20 left-20 w-32 h-32 bg-blue-500/10 rounded-full opacity-30"></div>
-              <div className="floating-shape absolute top-40 right-32 w-24 h-24 bg-purple-500/10 rounded-full opacity-40"></div>
-              <div className="floating-shape absolute bottom-32 left-32 w-40 h-40 bg-cyan-500/10 rounded-full opacity-25"></div>
-              <div className="floating-shape absolute bottom-20 right-20 w-28 h-28 bg-green-500/10 rounded-full opacity-20"></div>
+            {/* Animated Grid Pattern */}
+            <div
+              className="absolute inset-0 opacity-[0.02]"
+              style={{
+                backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+                backgroundSize: "50px 50px",
+              }}
+            ></div>
+
+            {/* Enhanced Floating Background Shapes */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+              {/* Large Background Blurs */}
+              <motion.div
+                className="floating-shape absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-blue-500/8 to-cyan-500/4 rounded-full blur-3xl"
+                animate={{
+                  y: [0, 15, 0],
+                  x: [0, 5, 0],
+                }}
+                transition={{
+                  duration: 8,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                }}
+              ></motion.div>
+              <motion.div
+                className="floating-shape absolute -top-20 -right-20 w-80 h-80 bg-gradient-to-br from-purple-500/8 to-pink-500/4 rounded-full blur-3xl"
+                animate={{
+                  y: [0, -12, 0],
+                  x: [0, -4, 0],
+                }}
+                transition={{
+                  duration: 10,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                  delay: 1,
+                }}
+              ></motion.div>
+              <motion.div
+                className="floating-shape absolute -bottom-40 -left-20 w-72 h-72 bg-gradient-to-br from-green-500/8 to-emerald-500/4 rounded-full blur-3xl"
+                animate={{
+                  y: [0, 10, 0],
+                  x: [0, 8, 0],
+                }}
+                transition={{
+                  duration: 12,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                  delay: 2,
+                }}
+              ></motion.div>
+              <motion.div
+                className="floating-shape absolute -bottom-20 -right-40 w-88 h-88 bg-gradient-to-br from-violet-500/8 to-indigo-500/4 rounded-full blur-3xl"
+                animate={{
+                  y: [0, -8, 0],
+                  x: [0, -6, 0],
+                }}
+                transition={{
+                  duration: 14,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                  delay: 3,
+                }}
+              ></motion.div>
+
+              {/* Medium Accent Shapes */}
+              <motion.div
+                className="floating-shape absolute top-20 left-20 w-32 h-32 bg-gradient-to-br from-blue-500/6 to-transparent rounded-full"
+                animate={{
+                  scale: [1, 1.05, 1],
+                  opacity: [0.4, 0.6, 0.4],
+                }}
+                transition={{
+                  duration: 6,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                }}
+              ></motion.div>
+              <motion.div
+                className="floating-shape absolute top-40 right-32 w-24 h-24 bg-gradient-to-br from-purple-500/6 to-transparent rounded-full"
+                animate={{
+                  scale: [1, 1.08, 1],
+                  opacity: [0.3, 0.7, 0.3],
+                }}
+                transition={{
+                  duration: 8,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                  delay: 2,
+                }}
+              ></motion.div>
+              <motion.div
+                className="floating-shape absolute bottom-32 left-32 w-40 h-40 bg-gradient-to-br from-cyan-500/5 to-transparent rounded-full"
+                animate={{
+                  scale: [1, 1.06, 1],
+                  opacity: [0.2, 0.5, 0.2],
+                }}
+                transition={{
+                  duration: 10,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                  delay: 3,
+                }}
+              ></motion.div>
+              <motion.div
+                className="floating-shape absolute bottom-20 right-20 w-28 h-28 bg-gradient-to-br from-green-500/5 to-transparent rounded-full"
+                animate={{
+                  scale: [1, 1.1, 1],
+                  opacity: [0.2, 0.6, 0.2],
+                }}
+                transition={{
+                  duration: 5,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                  delay: 1,
+                }}
+              ></motion.div>
+
+              {/* Small Sparkle Effects */}
+              <motion.div
+                className="floating-shape absolute top-1/3 left-1/4 w-3 h-3 bg-white/15 rounded-full"
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.5, 0.2, 0.5],
+                }}
+                transition={{
+                  duration: 4,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                }}
+              ></motion.div>
+              <motion.div
+                className="floating-shape absolute top-2/3 right-1/3 w-2 h-2 bg-blue-400/20 rounded-full"
+                animate={{
+                  scale: [1, 1.4, 1],
+                  opacity: [0.4, 0.1, 0.4],
+                }}
+                transition={{
+                  duration: 5,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                  delay: 2,
+                }}
+              ></motion.div>
+              <motion.div
+                className="floating-shape absolute bottom-1/3 left-2/3 w-2 h-2 bg-purple-400/20 rounded-full"
+                animate={{
+                  scale: [1, 1.3, 1],
+                  opacity: [0.3, 0.05, 0.3],
+                }}
+                transition={{
+                  duration: 6,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                  delay: 4,
+                }}
+              ></motion.div>
             </div>
 
-            {/* Hero Section */}
-            <section ref={heroRef} className="relative z-10 pt-20 pb-16 px-4">
-              <div className="max-w-6xl mx-auto text-center">
-                {/* Hero Title */}
-                <div className="hero-title mb-6">
-                  <div className="flex items-center justify-center gap-2 mb-4">
-                    <Sparkles className="w-8 h-8 text-blue-400" />
-                    <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
+            {/* Hero Section - Elevated z-index */}
+            <section ref={heroRef} className="relative z-40 pt-32 pb-24 px-4">
+              <div className="max-w-7xl mx-auto text-center relative z-50">
+                {/* Badge */}
+                <motion.div
+                  className="hero-badge mb-8"
+                  initial={{ y: -15, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+                >
+                  <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm border border-blue-500/30 rounded-full">
+                    <Sparkles className="w-5 h-5 text-blue-400" />
+                    <span className="text-sm font-medium text-blue-100">
                       Powered by Midnight Network
-                    </Badge>
+                    </span>
                   </div>
-                  <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-white via-gray-100 to-blue-100 bg-clip-text text-transparent leading-tight">
+                </motion.div>
+
+                {/* Main Title */}
+                <motion.div
+                  className="hero-title mb-12"
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
+                >
+                  <h1 className="text-7xl md:text-8xl lg:text-9xl font-black bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent leading-[0.9] mb-6 tracking-tight">
                     FestFund
                   </h1>
-                  <div className="text-3xl md:text-4xl font-semibold text-white mt-2">
+                  <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-white/90 mb-8 tracking-wide">
                     Privacy-First Fundraising
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Hero Subtitle */}
-                <div className="hero-subtitle mb-8 max-w-3xl mx-auto">
-                  <p className="text-xl text-gray-300 leading-relaxed">
+                <motion.div
+                  className="hero-subtitle mb-12 max-w-4xl mx-auto"
+                  initial={{ y: 15, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
+                >
+                  <p className="text-xl md:text-2xl text-gray-300 leading-relaxed font-light">
                     Experience the future of crowdfunding with{" "}
-                    <span className="font-semibold text-blue-400">
+                    <span className="font-semibold text-transparent bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text">
                       zero-knowledge proofs
                     </span>
                     , complete donor privacy, and transparent milestone
-                    verification. Built on cutting-edge cryptography with real
-                    Midnight Network integration.
+                    verification.
                   </p>
-                </div>
+                </motion.div>
 
-                {/* Hero Buttons */}
-                <div className="hero-buttons flex flex-col sm:flex-row gap-4 justify-center mb-12">
-                  <Button
-                    size="lg"
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg group border-0"
-                    onClick={() => router.push("/campaigns")}
-                  >
-                    <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                    Explore Campaigns
-                    <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
+                {/* Hero Buttons - Enhanced */}
+                <motion.div
+                  className="hero-buttons mb-16"
+                  initial={{ y: 15, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.5, ease: "easeOut", delay: 0.4 }}
+                >
+                  <div className="flex flex-col sm:flex-row gap-6 justify-center items-center max-w-lg mx-auto">
+                    <Button
+                      size="lg"
+                      className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-6 text-lg font-semibold group border-0 shadow-2xl hover:shadow-blue-500/25 hover:scale-[1.01] transition-all duration-300 rounded-2xl min-w-[200px]"
+                      onClick={() => router.push("/campaigns")}
+                    >
+                      <Play className="w-5 h-5 mr-3 group-hover:scale-105 transition-transform" />
+                      Explore Campaigns
+                      <ChevronRight className="w-5 h-5 ml-3 group-hover:translate-x-1 transition-transform" />
+                    </Button>
 
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-2 border-gray-600 text-white hover:bg-white hover:text-black px-8 py-4 text-lg group bg-transparent"
-                    onClick={() => {
-                      setAuthMode("register");
-                      setCurrentView("auth");
-                    }}
-                  >
-                    <Target className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                    Get Started
-                  </Button>
-                </div>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full sm:w-auto border-2 border-white/30 text-white hover:bg-white hover:text-black px-12 py-6 text-lg font-semibold group bg-white/5 backdrop-blur-sm hover:scale-[1.01] transition-all duration-300 rounded-2xl shadow-xl hover:shadow-white/10 min-w-[200px]"
+                      onClick={() => {
+                        setAuthMode("register");
+                        setCurrentView("auth");
+                      }}
+                    >
+                      <Target className="w-5 h-5 mr-3 group-hover:scale-105 transition-transform" />
+                      Get Started
+                    </Button>
+                  </div>
+                </motion.div>
 
                 {/* Hero Stats */}
-                <div className="hero-stats grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
-                  <AnimatedCard
-                    direction="scale"
-                    className="text-center bg-gray-900/50 backdrop-blur-sm border border-gray-800"
-                  >
-                    <div className="p-4">
-                      <div className="text-3xl font-bold text-blue-400 mb-1">
-                        <AnimatedCountUp
-                          end={47.8}
-                          decimals={1}
-                          suffix=" ETH"
-                        />
-                      </div>
-                      <div className="text-sm text-gray-400">Total Raised</div>
-                    </div>
-                  </AnimatedCard>
-
-                  <AnimatedCard
-                    direction="scale"
-                    delay={0.1}
-                    className="text-center bg-gray-900/50 backdrop-blur-sm border border-gray-800"
-                  >
-                    <div className="p-4">
-                      <div className="text-3xl font-bold text-purple-400 mb-1">
-                        <AnimatedCountUp end={events.length} />
-                      </div>
-                      <div className="text-sm text-gray-400">
-                        Active Campaigns
-                      </div>
-                    </div>
-                  </AnimatedCard>
-
-                  <AnimatedCard
-                    direction="scale"
-                    delay={0.2}
-                    className="text-center bg-gray-900/50 backdrop-blur-sm border border-gray-800"
-                  >
-                    <div className="p-4">
-                      <div className="text-3xl font-bold text-cyan-400 mb-1">
-                        <AnimatedCountUp end={234} />
-                      </div>
-                      <div className="text-sm text-gray-400">
-                        Privacy Donors
+                <motion.div
+                  className="hero-stats grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto"
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.6, ease: "easeOut", delay: 0.5 }}
+                >
+                  <AnimatedCard direction="scale" className="group">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-blue-900/30 to-blue-800/20 backdrop-blur-xl border border-blue-500/20 rounded-2xl p-8 hover:border-blue-400/40 transition-all duration-300 hover:scale-[1.01] shadow-xl hover:shadow-blue-500/10">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative">
+                        <div className="flex items-center justify-between mb-4">
+                          <DollarSign className="w-10 h-10 text-blue-400 group-hover:scale-105 transition-transform duration-200" />
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="text-4xl font-black text-white mb-2">
+                          {platformMetrics.isLoading ? (
+                            <div className="h-10 bg-blue-400/20 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <AnimatedCountUp
+                              end={platformMetrics.totalRaised}
+                              decimals={2}
+                              suffix=" ETH"
+                            />
+                          )}
+                        </div>
+                        <div className="text-base font-semibold text-blue-200 mb-1">
+                          Total Raised
+                        </div>
+                        <div className="text-sm text-blue-300/70">
+                          Across all campaigns
+                        </div>
                       </div>
                     </div>
                   </AnimatedCard>
 
-                  <AnimatedCard
-                    direction="scale"
-                    delay={0.3}
-                    className="text-center bg-gray-900/50 backdrop-blur-sm border border-gray-800"
-                  >
-                    <div className="p-4">
-                      <div className="text-3xl font-bold text-green-400 mb-1">
-                        <AnimatedCountUp end={1567} />
+                  <AnimatedCard direction="scale" delay={0.1} className="group">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-purple-900/30 to-purple-800/20 backdrop-blur-xl border border-purple-500/20 rounded-2xl p-8 hover:border-purple-400/40 transition-all duration-300 hover:scale-[1.01] shadow-xl hover:shadow-purple-500/10">
+                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative">
+                        <div className="flex items-center justify-between mb-4">
+                          <Target className="w-10 h-10 text-purple-400 group-hover:scale-105 transition-transform duration-300" />
+                          <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="text-4xl font-black text-white mb-2">
+                          {platformMetrics.isLoading ? (
+                            <div className="h-10 bg-purple-400/20 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <AnimatedCountUp
+                              end={platformMetrics.activeCampaigns}
+                            />
+                          )}
+                        </div>
+                        <div className="text-base font-semibold text-purple-200 mb-1">
+                          Active Campaigns
+                        </div>
+                        <div className="text-sm text-purple-300/70">
+                          Currently fundraising
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-400">ZK Proofs</div>
                     </div>
                   </AnimatedCard>
-                </div>
+
+                  <AnimatedCard direction="scale" delay={0.2} className="group">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-cyan-900/30 to-cyan-800/20 backdrop-blur-xl border border-cyan-500/20 rounded-2xl p-8 hover:border-cyan-400/40 transition-all duration-300 hover:scale-[1.01] shadow-xl hover:shadow-cyan-500/10">
+                      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative">
+                        <div className="flex items-center justify-between mb-4">
+                          <Users className="w-10 h-10 text-cyan-400 group-hover:scale-105 transition-transform duration-300" />
+                          <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="text-4xl font-black text-white mb-2">
+                          {platformMetrics.isLoading ? (
+                            <div className="h-10 bg-cyan-400/20 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <AnimatedCountUp
+                              end={platformMetrics.totalDonors}
+                            />
+                          )}
+                        </div>
+                        <div className="text-base font-semibold text-cyan-200 mb-1">
+                          Privacy Donors
+                        </div>
+                        <div className="text-sm text-cyan-300/70">
+                          Anonymous contributors
+                        </div>
+                      </div>
+                    </div>
+                  </AnimatedCard>
+
+                  <AnimatedCard direction="scale" delay={0.3} className="group">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-green-900/30 to-green-800/20 backdrop-blur-xl border border-green-500/20 rounded-2xl p-8 hover:border-green-400/40 transition-all duration-300 hover:scale-[1.01] shadow-xl hover:shadow-green-500/10">
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative">
+                        <div className="flex items-center justify-between mb-4">
+                          <Shield className="w-10 h-10 text-green-400 group-hover:scale-105 transition-transform duration-300" />
+                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="text-4xl font-black text-white mb-2">
+                          {platformMetrics.isLoading ? (
+                            <div className="h-10 bg-green-400/20 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <AnimatedCountUp
+                              end={platformMetrics.zkProofsGenerated}
+                            />
+                          )}
+                        </div>
+                        <div className="text-base font-semibold text-green-200 mb-1">
+                          ZK Proofs
+                        </div>
+                        <div className="text-sm text-green-300/70">
+                          Privacy guarantees
+                        </div>
+                      </div>
+                    </div>
+                  </AnimatedCard>
+
+                  {/* Secondary Metrics */}
+                  <div className="md:col-span-2 lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mt-8">
+                    <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur-sm">
+                      <div className="text-sm text-gray-400 mb-2">
+                        Avg. Donation
+                      </div>
+                      <div className="text-xl font-bold text-white">
+                        {platformMetrics.isLoading ? (
+                          <div className="h-6 w-20 bg-gray-600/20 rounded animate-pulse mx-auto"></div>
+                        ) : (
+                          <AnimatedCountUp
+                            end={platformMetrics.avgDonation}
+                            decimals={3}
+                            suffix=" ETH"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur-sm">
+                      <div className="text-sm text-gray-400 mb-2">
+                        Success Rate
+                      </div>
+                      <div className="text-xl font-bold text-green-400">
+                        {platformMetrics.isLoading ? (
+                          <div className="h-6 w-16 bg-gray-600/20 rounded animate-pulse mx-auto"></div>
+                        ) : (
+                          <AnimatedCountUp end={94.2} decimals={1} suffix="%" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur-sm">
+                      <div className="text-sm text-gray-400 mb-2">
+                        Network Status
+                      </div>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="relative">
+                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                          <div className="w-2 h-2 bg-green-400 rounded-full absolute top-0 left-0 animate-ping"></div>
+                        </div>
+                        <span className="text-xl font-bold text-green-400">
+                          Live
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur-sm">
+                      <div className="text-sm text-gray-400 mb-2">
+                        Processing Time
+                      </div>
+                      <div className="text-xl font-bold text-blue-400">
+                        ~1.2ms
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Last Updated Indicator */}
+                  {platformMetrics.lastUpdated && (
+                    <div className="md:col-span-2 lg:col-span-4 flex justify-center mt-4">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800/30 rounded-full border border-gray-700/30 backdrop-blur-sm">
+                        <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="text-sm text-gray-400">
+                          Last updated:{" "}
+                          {platformMetrics.lastUpdated.toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
               </div>
             </section>
 
@@ -804,9 +1148,9 @@ export default function HomePage() {
 
                 <div className="grid md:grid-cols-3 gap-8 mb-16">
                   <AnimatedCard direction="up" delay={0.1}>
-                    <Card className="h-full group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-gray-900/50 backdrop-blur-sm border-gray-800">
+                    <Card className="h-full group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gray-900/50 backdrop-blur-sm border-gray-800">
                       <CardContent className="p-8 text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
                           <Lock className="w-8 h-8 text-white" />
                         </div>
                         <h3 className="text-xl font-semibold mb-3 text-white">
@@ -822,9 +1166,9 @@ export default function HomePage() {
                   </AnimatedCard>
 
                   <AnimatedCard direction="up" delay={0.2}>
-                    <Card className="h-full group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-gray-900/50 backdrop-blur-sm border-gray-800">
+                    <Card className="h-full group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gray-900/50 backdrop-blur-sm border-gray-800">
                       <CardContent className="p-8 text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
                           <Eye className="w-8 h-8 text-white" />
                         </div>
                         <h3 className="text-xl font-semibold mb-3 text-white">
@@ -840,9 +1184,9 @@ export default function HomePage() {
                   </AnimatedCard>
 
                   <AnimatedCard direction="up" delay={0.3}>
-                    <Card className="h-full group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-gray-900/50 backdrop-blur-sm border-gray-800">
+                    <Card className="h-full group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gray-900/50 backdrop-blur-sm border-gray-800">
                       <CardContent className="p-8 text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-cyan-500 to-green-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-cyan-500 to-green-500 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
                           <Zap className="w-8 h-8 text-white" />
                         </div>
                         <h3 className="text-xl font-semibold mb-3 text-white">
@@ -941,50 +1285,68 @@ export default function HomePage() {
                 </AnimatedCard>
 
                 <div className="grid md:grid-cols-3 gap-8">
-                  <div className="stat-card">
-                    <Card className="text-center group hover:shadow-xl transition-all duration-300 bg-gray-900/50 backdrop-blur-sm border-gray-800">
+                  <AnimatedCard
+                    direction="up"
+                    delay={0.1}
+                    className="stat-card"
+                  >
+                    <Card className="text-center group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gray-900/80 backdrop-blur-sm border border-gray-700 shadow-lg">
                       <CardContent className="p-8">
-                        <Shield className="w-12 h-12 text-green-600 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                        <div className="text-3xl font-bold text-green-600 mb-2">
+                        <Shield className="w-12 h-12 text-green-500 mx-auto mb-4 group-hover:scale-105 transition-transform" />
+                        <div className="text-3xl font-bold text-green-500 mb-2">
                           <AnimatedCountUp end={98.7} decimals={1} suffix="%" />
                         </div>
-                        <div className="text-white">Privacy Score</div>
-                        <div className="text-sm text-gray-400 mt-2">
+                        <div className="text-white font-medium">
+                          Privacy Score
+                        </div>
+                        <div className="text-sm text-gray-300 mt-2">
                           Cryptographically verified
                         </div>
                       </CardContent>
                     </Card>
-                  </div>
+                  </AnimatedCard>
 
-                  <div className="stat-card">
-                    <Card className="text-center group hover:shadow-xl transition-all duration-300 bg-gray-900/50 backdrop-blur-sm border-gray-800">
+                  <AnimatedCard
+                    direction="up"
+                    delay={0.2}
+                    className="stat-card"
+                  >
+                    <Card className="text-center group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gray-900/80 backdrop-blur-sm border border-gray-700 shadow-lg">
                       <CardContent className="p-8">
-                        <Globe className="w-12 h-12 text-blue-600 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                        <div className="text-3xl font-bold text-blue-600 mb-2">
+                        <Globe className="w-12 h-12 text-blue-500 mx-auto mb-4 group-hover:scale-105 transition-transform" />
+                        <div className="text-3xl font-bold text-blue-500 mb-2">
                           <AnimatedCountUp end={99.9} decimals={1} suffix="%" />
                         </div>
-                        <div className="text-white">Network Uptime</div>
-                        <div className="text-sm text-gray-400 mt-2">
+                        <div className="text-white font-medium">
+                          Network Uptime
+                        </div>
+                        <div className="text-sm text-gray-300 mt-2">
                           Midnight Network reliability
                         </div>
                       </CardContent>
                     </Card>
-                  </div>
+                  </AnimatedCard>
 
-                  <div className="stat-card">
-                    <Card className="text-center group hover:shadow-xl transition-all duration-300 bg-gray-900/50 backdrop-blur-sm border-gray-800">
+                  <AnimatedCard
+                    direction="up"
+                    delay={0.3}
+                    className="stat-card"
+                  >
+                    <Card className="text-center group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gray-900/80 backdrop-blur-sm border border-gray-700 shadow-lg">
                       <CardContent className="p-8">
-                        <TrendingUp className="w-12 h-12 text-purple-600 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                        <div className="text-3xl font-bold text-purple-600 mb-2">
+                        <TrendingUp className="w-12 h-12 text-purple-500 mx-auto mb-4 group-hover:scale-105 transition-transform" />
+                        <div className="text-3xl font-bold text-purple-500 mb-2">
                           ~1ms
                         </div>
-                        <div className="text-white">ZK Proof Speed</div>
-                        <div className="text-sm text-gray-400 mt-2">
+                        <div className="text-white font-medium">
+                          ZK Proof Speed
+                        </div>
+                        <div className="text-sm text-gray-300 mt-2">
                           Lightning-fast privacy
                         </div>
                       </CardContent>
                     </Card>
-                  </div>
+                  </AnimatedCard>
                 </div>
               </div>
             </section>

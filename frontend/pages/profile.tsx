@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
+import { motion, useAnimation, useInView } from "framer-motion";
 import {
   Card,
   CardContent,
@@ -43,10 +42,40 @@ import {
   BarChart3,
 } from "lucide-react";
 
-// Register GSAP plugins
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
+// Animation controls for Framer Motion
+const AnimatedSection: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = ({ children, className = "" }) => {
+  const controls = useAnimation();
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.1 });
+
+  useEffect(() => {
+    if (inView) {
+      controls.start("visible");
+    }
+  }, [controls, inView]);
+
+  return (
+    <motion.div
+      ref={ref}
+      animate={controls}
+      initial="hidden"
+      variants={{
+        hidden: { opacity: 0, y: 50 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          transition: { duration: 0.8, ease: "easeOut" },
+        },
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
 
 interface UserProfile {
   _id: string;
@@ -121,43 +150,10 @@ const ProfilePage: React.FC = () => {
     "overview" | "campaigns" | "donations" | "achievements"
   >("overview");
 
-  // GSAP animations
+  // Framer Motion animations
   useEffect(() => {
-    if (profile) {
-      // Profile hero animation
-      if (heroRef.current) {
-        gsap.fromTo(
-          ".profile-hero",
-          { y: 50, opacity: 0 },
-          { y: 0, opacity: 1, duration: 1, ease: "power3.out" }
-        );
-      }
-
-      // Stats animation
-      if (statsRef.current) {
-        ScrollTrigger.create({
-          trigger: statsRef.current,
-          start: "top 80%",
-          onEnter: () => {
-            gsap.from(".stat-item", {
-              scale: 0.8,
-              opacity: 0,
-              duration: 0.6,
-              stagger: 0.1,
-              ease: "back.out(1.7)",
-            });
-          },
-        });
-      }
-
-      // Tab content animations
-      gsap.from(".tab-content", {
-        y: 20,
-        opacity: 0,
-        duration: 0.5,
-        ease: "power2.out",
-      });
-    }
+    // Animations are now handled by Framer Motion components
+    // No additional setup needed here
   }, [profile, activeTab]);
 
   useEffect(() => {
@@ -182,7 +178,9 @@ const ProfilePage: React.FC = () => {
       }
 
       // Fetch user campaigns (if organizer)
-      const campaignsResponse = await fetch(`/api/proof/events/organizer/${account}`);
+      const campaignsResponse = await fetch(
+        `/api/proof/events/organizer/${account}`
+      );
       if (campaignsResponse.ok) {
         const campaignsData = await campaignsResponse.json();
         setCampaigns(campaignsData);
@@ -211,10 +209,12 @@ const ProfilePage: React.FC = () => {
       // TODO: Implement backend endpoint for role updates
       // Backend needs: POST /api/auth/update-role
       console.log(`Role update requested: ${newRole} for ${account}`);
-      
+
       // For now, just show a message
-      alert(`Role update to ${newRole} requested. Backend endpoint needs to be implemented.`);
-      
+      alert(
+        `Role update to ${newRole} requested. Backend endpoint needs to be implemented.`
+      );
+
       /* 
       const response = await axios.post(`${BACKEND_URL}/api/auth/update-role`, {
         walletAddress: account,
