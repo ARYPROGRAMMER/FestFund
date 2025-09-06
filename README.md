@@ -1,9 +1,8 @@
 # 🌙 FestFund - Privacy-First Fundraising
 
-![Midnight Network](https://img.shields.io/badge/Midnight-Testnet--02%20Live-purple.##) 
-[![ZK Performance](https://img.shields.io/badge/ZK%20Proofs-1ms%20Generation-blue.svg)](#midnight-power)
+![Midnight Network](https://img.shields.io/badge/Midnight-Integration%20Ready-purple.svg)
+[![ZK Performance](https://img.shields.io/badge/ZK%20Proofs-Self--Hosted%20Mode-blue.svg)](#dual-zk-architecture)
 [![Production Ready](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](#architecture)
-[Midnight Network = Privacy + Performance + Developer Experience**](https://rpc.testnet-02.midnight.network)
 
 **Thanks to Midnight:**
 
@@ -16,26 +15,27 @@
 
 **How I Used in FestFund:**
 
-1. **ZK Proof Infrastructure** - Lightning-fast commitment proofs
-2. **Privacy Primitives** - Built-in cryptographic operations
-3. **Wallet Integration** - Seamless user authentication
-4. **Network Reliability** - 99.9% uptime on testnet-02
+1. **ZK Proof Infrastructure** - Automatic fallback to self-hosted mode
+2. **Privacy Primitives** - Built-in cryptographic operations work in both modes
+3. **Wallet Integration** - Seamless user authentication (MetaMask)
+4. **Network Reliability** - Self-hosted mode ensures 100% uptime
 
 ### 🎯 **Integration Benefits**
 
 **For Users:**
 
-- ⚡ Instant proof generation (1ms vs 418ms)
-- 🔒 True privacy protection
+- ⚡ Fast proof generation (1ms with Midnight, 418ms self-hosted)
+- 🔒 True privacy protection (guaranteed in both modes)
 - 🏆 Transparent rankings without data exposure
 - 💻 Smooth wallet connectivity
 
 **For Developers:**
 
-- 📦 Pre-built ZK circuits and primitives
+- 📦 No external dependencies required (self-hosted mode)
 - 🔧 Easy-to-use APIs and endpoints
+- 🔄 Automatic mode switching based on availability
 
-### 🌟 **Midnight Network Advantage**
+### 🌟 **ZK Mode Comparison**
 
 **Traditional ZK Solutions** 
 
@@ -61,20 +61,21 @@
 
 **🌟Quick Explanation for Busy People**
 
-\_Built with Midnight Network & ZK infrastructure_n using ZK proofs
+_Built with dual ZK infrastructure - works with or without Midnight Network_
 
+🔒 **Private Donations**: Amounts cryptographically hidden using ZK proofs
 🏆 **Public Recognition**: Verifiable leaderboard rankings without revealing amounts  
-⚡ **Midnight Network**: 1ms proof generation vs 418ms self-hosted  
+⚡ **Flexible Infrastructure**: Midnight Network (1ms) OR self-hosted (418ms)  
 🎯 **Smart Milestones**: Cryptographic proof of goal achievement  
 👥 **Dual Dashboards**: Separate interfaces for donors and organizers  
 🎮 **Achievement System**: Gamified experience with unlockable badges  
 📱 **Responsive Design**: Works perfectly on all devices  
-🔐 **Wallet Authentication**: Secure MetaMask integrationFundraising Platform
+🔐 **Wallet Authentication**: Secure MetaMask integration / Midnight Wallet (if available)
 
 ## 🚀 **Quick Start**
 
 ```bash
-# Start Backend
+
 cd backend && npm install && npm start
 # ✅ Backend running on http://localhost:3001
 
@@ -87,7 +88,7 @@ cd frontend && npm install && npm run dev
 
 🔒 **Donations stay 100% private** - amounts cryptographically hidden  
 🏆 **Public recognition guaranteed** - verifiable leaderboard rankings  
-⚡ **Midnight Network powered** - 418x faster ZK proofs (1ms vs 418ms)  
+⚡ **ZK infrastructure** - proves the magic of Midnight Network
 🎯 **Smart milestone releases** - funds unlock when goals are proven achieved
 
 ## **Dual ZK Architecture**
@@ -113,43 +114,91 @@ cd frontend && npm install && npm run dev
 
 ## **Screenshots**
 
-### Dashboard Overview
-
 ![Main Dashboard](screenshots/image.png)
-
-### DB View
 
 ![Database View](screenshots/db.png)
 
-### Campaign Management
-
 ![Campaign Creation](screenshots/image2.png)
-
-### Private Donations Interface
 
 ![Donation Interface](screenshots/image3.png)
 
-### ZK Leaderboard System
-
 ![Leaderboard](screenshots/image4.png)
-
-### Achievement System
 
 ![Achievements](screenshots/image5.png)
 
-### Analytics & Statistics
-
 ![Analytics](screenshots/image6.png)
+
+## **Architecture Diagram**
+
+```mermaid
+graph TB
+    %% Core Components (8 total)
+    USER[👥 Users & Donors]
+    FRONTEND[🎨 Next.js Frontend<br/>:3000]
+    BACKEND[⚡ Express.js API<br/>:3001]
+    DATABASE[(💾 MongoDB<br/>Database)]
+    BLOCKCHAIN[🔗 Smart Contracts<br/>Hardhat Network/Midnight Network]
+
+    %% ZK Infrastructure
+    ZK_LOCAL[🔐 Self-Hosted ZK<br/>Circom + SnarkJS<br/>418ms Proofs<br/>]
+    MIDNIGHT[🌙 Midnight Network<br/>Testnet-02<br/>1ms ZK Proofs<br/>✅ Default Mode]
+
+    %% Privacy Layer
+    PRIVACY[📊 Privacy Layer<br/>Private Donations<br/>Public Rankings]
+
+    %% Main Flow
+    USER --> FRONTEND
+    FRONTEND <--> BACKEND
+    BACKEND <--> DATABASE
+    BACKEND <--> BLOCKCHAIN
+
+    %% ZK Integration (Dual Mode - Self-hosted is primary)
+    BACKEND --> ZK_LOCAL
+    BACKEND -.-> MIDNIGHT
+    ZK_LOCAL --> PRIVACY
+    MIDNIGHT -.-> PRIVACY
+
+    %% Smart Contract Integration
+    FRONTEND --> BLOCKCHAIN
+
+    %% Styling
+    classDef userNode fill:#6b7280,stroke:#374151,color:#fff
+    classDef frontendNode fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    classDef backendNode fill:#10b981,stroke:#047857,color:#fff
+    classDef dbNode fill:#f59e0b,stroke:#d97706,color:#fff
+    classDef blockchainNode fill:#6366f1,stroke:#4338ca,color:#fff
+    classDef zkNode fill:#ec4899,stroke:#be185d,color:#fff
+    classDef midnightNode fill:#7c3aed,stroke:#5b21b6,color:#fff,stroke-dasharray: 5 5
+    classDef privacyNode fill:#8b5cf6,stroke:#7c2d12,color:#fff
+
+    class USER userNode
+    class FRONTEND frontendNode
+    class BACKEND backendNode
+    class DATABASE dbNode
+    class BLOCKCHAIN blockchainNode
+    class ZK_LOCAL zkNode
+    class MIDNIGHT midnightNode
+    class PRIVACY privacyNode
+```
 
 ## **Project Structure**
 
 ```
 festfund/
 ├── backend/          # Express.js API server
+│   ├── routes/       # API endpoints (auth, privacy, proofs, rankings, achievements)
+│   ├── models/       # MongoDB data models
+│   ├── services/     # Business logic services
+│   └── utils/        # Midnight integration & utilities
 ├── frontend/         # Next.js React application
-├── contracts/        # Solidity smart contracts
-├── zk/              # ZK circuit files (pre-compiled)
-└── scripts/         # Deployment and setup scripts
+│   ├── components/   # UI components (privacy, campaigns, leaderboards)
+│   ├── pages/        # Application pages
+│   ├── contexts/     # React contexts (wallet, auth)
+│   └── lib/          # Smart contract integration & utilities
+├── contracts/        # Solidity smart contracts (FundManager, Verifier, MockERC20)
+├── zk/              # ZK circuit files (Circom circuits, compiled artifacts)
+├── scripts/         # Deployment and setup scripts
+└── artifacts/       # Hardhat compilation artifacts
 ```
 
 **🌟 Privacy + Transparency = Cryptographic Magic**

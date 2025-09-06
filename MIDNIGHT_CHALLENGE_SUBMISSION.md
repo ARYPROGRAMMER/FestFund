@@ -105,6 +105,59 @@ cd frontend && npm run dev
 # ✅ http://localhost:3000 (Full Application)
 ```
 
+## **Architecture Diagram**
+
+```mermaid
+graph TB
+    %% Core Components (8 total)
+    USER[👥 Users & Donors]
+    FRONTEND[🎨 Next.js Frontend<br/>:3000]
+    BACKEND[⚡ Express.js API<br/>:3001]
+    DATABASE[(💾 MongoDB<br/>Database)]
+    BLOCKCHAIN[🔗 Smart Contracts<br/>Hardhat Network/Midnight Network]
+
+    %% ZK Infrastructure
+    ZK_LOCAL[🔐 Self-Hosted ZK<br/>Circom + SnarkJS<br/>418ms Proofs<br/>]
+    MIDNIGHT[🌙 Midnight Network<br/>Testnet-02<br/>1ms ZK Proofs<br/>✅ Default Mode]
+
+    %% Privacy Layer
+    PRIVACY[📊 Privacy Layer<br/>Private Donations<br/>Public Rankings]
+
+    %% Main Flow
+    USER --> FRONTEND
+    FRONTEND <--> BACKEND
+    BACKEND <--> DATABASE
+    BACKEND <--> BLOCKCHAIN
+
+    %% ZK Integration (Dual Mode - Self-hosted is primary)
+    BACKEND --> ZK_LOCAL
+    BACKEND -.-> MIDNIGHT
+    ZK_LOCAL --> PRIVACY
+    MIDNIGHT -.-> PRIVACY
+
+    %% Smart Contract Integration
+    FRONTEND --> BLOCKCHAIN
+
+    %% Styling
+    classDef userNode fill:#6b7280,stroke:#374151,color:#fff
+    classDef frontendNode fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    classDef backendNode fill:#10b981,stroke:#047857,color:#fff
+    classDef dbNode fill:#f59e0b,stroke:#d97706,color:#fff
+    classDef blockchainNode fill:#6366f1,stroke:#4338ca,color:#fff
+    classDef zkNode fill:#ec4899,stroke:#be185d,color:#fff
+    classDef midnightNode fill:#7c3aed,stroke:#5b21b6,color:#fff,stroke-dasharray: 5 5
+    classDef privacyNode fill:#8b5cf6,stroke:#7c2d12,color:#fff
+
+    class USER userNode
+    class FRONTEND frontendNode
+    class BACKEND backendNode
+    class DATABASE dbNode
+    class BLOCKCHAIN blockchainNode
+    class ZK_LOCAL zkNode
+    class MIDNIGHT midnightNode
+    class PRIVACY privacyNode
+```
+
 **Features working:**
 
 - Wallet connection (MetaMask or mock)
@@ -178,11 +231,11 @@ npm install && npm run test:midnight
 
 ✅ **Real Midnight Network integration** (testnet-02 live)  
 ✅ **Cryptographic privacy guarantees** (mathematically impossible to break)  
-✅ **Production architecture** (full-stack with database)  
+✅ **Architecture** (full-stack with database)  
 
 **Powered by Midnight Network's ZK infrastructure.**
 
 ---
 
 
-_Built with ❤️ for a world where privacy and transparency coexist through cryptography_
+_Built with ❤️ by Arya Singh_
