@@ -3,6 +3,21 @@
 ![Midnight Network](https://img.shields.io/badge/Midnight-Integration%20Ready-purple.svg)
 [![ZK Performance](https://img.shields.io/badge/ZK%20Proofs-Self--Hosted%20Mode-blue.svg)](#dual-zk-architecture)
 [![Production Ready](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](#architecture)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-festfund.vercel.app-blue.svg)](https://festfund.vercel.app/)
+[![YouTube Demo](https://img.shields.io/badge/Demo-YouTube-red.svg)](https://www.youtube.com/watch?v=4dsZVYmTkkY)
+[![Vimeo Demo](https://img.shields.io/badge/Technical%20Deep%20Dive-Vimeo-blue.svg)](https://vimeo.com/1116483249?share=copy)
+
+**Tech Stack:**
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=next.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)
+![Node.js](https://img.shields.io/badge/Node.js-43853D?style=flat&logo=node.js&logoColor=white)
+![Express.js](https://img.shields.io/badge/Express.js-404D59?style=flat&logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=flat&logo=mongodb&logoColor=white)
+![Solidity](https://img.shields.io/badge/Solidity-363636?style=flat&logo=solidity&logoColor=white)
+![Hardhat](https://img.shields.io/badge/Hardhat-FFF100?style=flat&logo=hardhat&logoColor=black)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white)
 
 **Thanks to Midnight:**
 
@@ -208,3 +223,5 @@ festfund/
 **🌟 Privacy + Transparency = Cryptographic Magic**
 
 _Powered by Midnight Network's ZK and Wallet infrastructure_
+
+*Built with 💜 for the Midnight Network community - Arya Singh*
