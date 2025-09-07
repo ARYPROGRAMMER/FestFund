@@ -8,7 +8,7 @@
 
 🚀 **418x Performance Boost**: ZK proof generation reduced from 418ms to 1ms  
 🔒 **Enterprise-Grade Privacy**: Built-in ZK circuits optimized for scale  
-🏗️ **Production Ready**: Robust testnet-02 infrastructure  
+🏗️ **Production Ready**: Robust testnet-02 infrastructure
 
 - **Insomnia Collection**: https://docs.midnight.network/develop/nodes-and-dapps/nodes-endpoints
 - **Testnet-02 RPC**: `https://rpc.testnet-02.midnight.network`
@@ -37,19 +37,19 @@
 
 ### 🌟 **ZK Mode Comparison**
 
-**Traditional ZK Solutions** 
+**Traditional ZK Solutions**
 
 - Complex circuit compilation
 - Slow proof generation (418ms+)
 - Manual infrastructure setup
 - Limited documentation
 
-**Midnight Network** 
+**Midnight Network**
 
 - **1ms proof generation**
-- **Pre-optimized circuits** 
-- **Comprehensive documentation** 
-- **Active developer community** 
+- **Pre-optimized circuits**
+- **Comprehensive documentation**
+- **Active developer community**
 
 **Private donations + Public rankings + Cryptographic verification = Privacy + Transparency solved**
 
@@ -106,13 +106,17 @@ cd frontend && npm install && npm run dev
 
 ## **Tech Stack**
 
-**Privacy Infrastructure**: **Midnight Network** (Testnet-02) 
+**Privacy Infrastructure**: **Midnight Network** (Testnet-02)
 **Frontend**: React/Next.js + TypeScript + Tailwind (Dark Mode)  
 **Backend**: Express.js + MongoDB + JWT Auth  
 **Blockchain**: Solidity + Hardhat + ZK Circuits  
 **ZK Integration**: Circom + SnarkJS + **Official Midnight SDK**
 
 ## **Screenshots**
+
+![Architecture Diagram](screenshots/diagram.png)
+
+![Privacy Restrictions](screenshots/restriction.png)
 
 ![Main Dashboard](screenshots/image.png)
 

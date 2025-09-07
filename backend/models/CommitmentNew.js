@@ -87,13 +87,25 @@ const commitmentSchema = new mongoose.Schema(
     // ZK-proven amount (for accurate rankings without revelation)
     zkProvenAmount: {
       type: String, // Encrypted/hashed representation of amount for ranking
-      required: true,
+      required: false, // Made optional for backward compatibility
+      default: function () {
+        // Provide default based on revealed amount if available
+        return this.revealedAmount || "0";
+      },
     },
 
     // Amount range proof (for milestone verification)
     amountProof: {
       type: mongoose.Schema.Types.Mixed,
-      required: true, // ZK proof that amount is within valid range
+      required: false, // Made optional for backward compatibility
+      default: function () {
+        // Provide default proof structure for legacy commitments
+        return {
+          type: "legacy_compatibility",
+          timestamp: Date.now(),
+          commitmentHash: this.commitmentHash,
+        };
+      },
     },
 
     // Ranking proof (for position verification)

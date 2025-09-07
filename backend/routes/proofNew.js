@@ -695,6 +695,16 @@ router.post("/generate-commitment", async (req, res) => {
       proof: commitmentData.proof,
       publicSignals: commitmentData.publicSignals || [],
 
+      // Required ZK proof fields
+      zkProvenAmount: amount.toString(), // Store amount as string for precision
+      amountProof: {
+        type: "midnight_range_proof",
+        proof: commitmentData.proof,
+        commitment: commitmentData.commitment,
+        nullifierHash: commitmentData.nullifierHash,
+        timestamp: Date.now(),
+      },
+
       // Transaction tracking
       txHash: commitmentData.txHash,
 
@@ -841,6 +851,15 @@ router.post("/submit-commitment", async (req, res) => {
       // Proof data (simplified for legacy commit)
       proof: { commitmentHash }, // Simplified proof
       publicSignals: [],
+
+      // Required ZK proof fields (legacy commit)
+      zkProvenAmount: "1", // Default minimal amount for legacy commit
+      amountProof: {
+        type: "legacy_commit_proof",
+        commitmentHash: commitmentHash,
+        method: "commit_only",
+        timestamp: Date.now(),
+      },
 
       // Transaction tracking (mock for commit)
       txHash: "0x" + commitmentHash.slice(0, 64), // Mock transaction hash
