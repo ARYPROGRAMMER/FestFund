@@ -1,6 +1,6 @@
 # 🌙 FestFund - Privacy-First Fundraising
 
-![Midnight Network](https://img.shields.io/badge/Midnight-Integration%20Ready-purple.svg)
+![Midnight Network](https://img.shields.io/badge/Midnight-ZKP-purple.svg)
 [![ZK Performance](https://img.shields.io/badge/ZK%20Proofs-Self--Hosted%20Mode-blue.svg)](#dual-zk-architecture)
 [![Production Ready](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](#architecture)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-festfund.vercel.app-blue.svg)](https://festfund.vercel.app/)
@@ -18,6 +18,8 @@
 ![Hardhat](https://img.shields.io/badge/Hardhat-FFF100?style=flat&logo=hardhat&logoColor=black)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white)
+
+**NOTE: The deployed service [vercel frontend and koyeb backend] is ought to NOT work due to contracts not being deployed on real blockchain. It just serves as a high level skeleton for now.**
 
 **Thanks to Midnight:**
 
@@ -91,12 +93,74 @@ _Built with dual ZK infrastructure - works with or without Midnight Network_
 
 ```bash
 
+# Create hardhat blockchain, deploy contracts and use the wallet address
+npx hardhat node
+npm run deploy # in root
+
+# Backend Start
 cd backend && npm install && npm start
 # ✅ Backend running on http://localhost:3001
 
 # Start Frontend (new terminal)
 cd frontend && npm install && npm run dev
 # ✅ Frontend running on http://localhost:3000
+
+# Backend .env can be ignored , backend can take from root
+
+root .env:
+
+NODE_ENV=development
+APP_URL=http://localhost:3000
+USE_MOCK_MODE=true
+PORT=3001
+BACKEND_URL=http://localhost:3001
+CORS_ORIGIN=http://localhost:3000,http://localhost:3001
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+NEXT_PUBLIC_APP_NAME=FestFund
+NEXT_PUBLIC_APP_DESCRIPTION=Privacy-First Donation Platform
+NEXT_PUBLIC_USE_MOCK_WALLET=true
+NEXT_PUBLIC_ENABLE_ANALYTICS=false
+NEXT_PUBLIC_ENABLE_NOTIFICATIONS=true
+NEXT_PUBLIC_DEFAULT_THEME=light
+MONGODB_URI=&appName=
+JWT_SECRET=your-super-secret-jwt-key-change-for-production
+BCRYPT_SALT_ROUNDS=12
+GEMINI_API_KEY=
+NEXT_PUBLIC_BLOCKCHAIN_RPC=http://localhost:8545
+NEXT_PUBLIC_CHAIN_ID=31337
+PRIVATE_KEY=7c60d2cd7f18a7891ae8b169f2fdf082d44206acf9c331e81113343537b81fd0
+NEXT_PUBLIC_FUND_MANAGER_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+NEXT_PUBLIC_VERIFIER_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+NEXT_PUBLIC_MOCK_ERC20_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3
+ZK_MODE=midnight-network
+NEXT_PUBLIC_ZK_MODE=midnight-network
+ZK_CIRCUIT_PATH=./zk/circuits
+ZK_PROVING_KEY_PATH=./zk/build/proving_key.zkey
+ZK_VERIFICATION_KEY_PATH=./zk/build/verification_key.json
+ZK_CIRCUIT_WASM_PATH=./zk/build/donation_commitment_v1.wasm
+VERIFIER_CONTRACT_PATH=./contracts/Verifier.sol
+MIDNIGHT_RPC_URL=https://rpc.testnet-02.midnight.network
+MIDNIGHT_INDEXER_URL=https://indexer.testnet-02.midnight.network/api/v1/graphql
+MIDNIGHT_INDEXER_WS_URL=wss://indexer.testnet-02.midnight.network/api/v1/graphql/ws
+MIDNIGHT_NETWORK_ID=TestNet
+MIDNIGHT_WALLET_SEED=your_64_character_hex_seed_here_or_mnemonic_phrase
+NEXT_PUBLIC_MIDNIGHT_RPC_URL=https://rpc.testnet-02.midnight.network
+NEXT_PUBLIC_MIDNIGHT_NETWORK_ID=TestNet
+NEXT_PUBLIC_MIDNIGHT_EXPLORER_URL=https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frpc.testnet-02.midnight.network
+ENABLE_LOGGING=true
+
+# My Frontend .env.local
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+NEXT_PUBLIC_APP_NAME=FestFund
+NEXT_PUBLIC_APP_DESCRIPTION=Privacy-First Donation Platform with Zero-Knowledge Proofs
+NEXT_PUBLIC_CHAIN_ID=31337
+NEXT_PUBLIC_ENABLE_ANALYTICS=false
+NEXT_PUBLIC_ENABLE_NOTIFICATIONS=true
+NEXT_PUBLIC_BLOCKCHAIN_RPC=http://localhost:8545
+NEXT_PUBLIC_FUND_MANAGER_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+NEXT_PUBLIC_VERIFIER_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+NEXT_PUBLIC_MOCK_TOKEN_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3
+NODE_ENV=development
 ```
 
 ### **Privacy + Transparency Solution**
