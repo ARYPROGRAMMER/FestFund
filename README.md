@@ -17,7 +17,7 @@
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white)
 
-**NOTE: The deployed service [vercel frontend and koyeb backend] is ought to NOT work due to contracts not being deployed on real blockchain. It just serves as a high level skeleton for now.**
+*Note* : This project is no longer actively maintained. It was built as a demo for the Midnight Network Hackathon and serves as a reference implementation for privacy-first fundraising using zero-knowledge proofs.
 
 **Thanks to Midnight:**
 
